@@ -63,13 +63,14 @@ void * if_addr=NULL;
 
 const char* eth = "eth0";
 
-getifaddrs(&ifAddrStruct);
+printf("getif: %d\n", getifaddrs(&ifAddrStruct));
 
 for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-    if ((ifa ->ifa_addr->sa_family==AF_INET) && (strcmp(ifa->ifa_name, eth) == 0)) {             
+    if ((ifa->ifa_addr != NULL) && (ifa->ifa_addr->sa_family==AF_INET) && (strcmp(ifa->ifa_name, eth) == 0)) {             
         if_addr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-    } 
+    }
 }
+
 char addressBuffer[INET_ADDRSTRLEN];
 inet_ntop(AF_INET, if_addr, addressBuffer, INET_ADDRSTRLEN);
 
@@ -82,7 +83,7 @@ strcat(databuf, addressBuffer);
 strcat(databuf, " and my hostname is ");
 strcat(databuf, hostname);
 
-if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+ if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
 
 printf("Sending: %s\n", databuf);
 
