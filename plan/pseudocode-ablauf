@@ -1,0 +1,33 @@
+Start:
+-OS_Level generieren, random 1-65k
+-eigene IP holen
+-nick setzen aus hostname oder parameter
+-multicast starten, gruppe joinen
+-sende Request_Membership
+
+   -> Init
+-timer
+-wenn antwort I_Am_Master 
+    
+       -> MasterFound
+    -sende Request_MemberShip
+    -sende Get_BrowseList
+    -timer, MAXREQ -1
+    -wenn empfang von Browselist
+    
+       -> BrowseList_Rcvd
+    -unicast-verbindungen aufbauen
+    -mainloop mit select auf userinput, unicast und multicast
+
+-wenn nach timerablauf keine antwort
+
+      -> ForceElection
+    -ForceElection Paket absenden
+    -OS_Level ueber multicast senden
+    -uebergang in
+
+      -> I_Am_Master
+    -timer
+    -auf empfang eines hoeheren OS_Level warten, wird dieser empfangen, zurueck zu MasterFound
+    -nach timer-ablauf: I_Am_Master absenden
+    -bei empfang von Request_MemberShip/Get_BrowseList entsprechende Antwort senden

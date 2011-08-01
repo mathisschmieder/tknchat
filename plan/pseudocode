@@ -1,0 +1,13 @@
+main() 
+{
+int OS_Level = random(1..65535);
+ip_addr ip = getip(eth0);
+
+setup_multicast();
+init();
+}
+
+setup_multicast() {
+socket_setup();
+join_multicast_group();
+}
