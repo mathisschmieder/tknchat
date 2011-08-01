@@ -3,8 +3,35 @@ main()
 int OS_Level = random(1..65535);
 ip_addr ip = getip(eth0);
 
+if (get_arg(nick) != NULL)
+  nick = get_arg(nick)
+else
+  nick = getHostname();
+
 setup_multicast();
-init();
+init_filedesriptors();
+
+setState(STATE_INIT);
+
+while true
+   
+   resetGlobalTimer();
+   select(filedescriptors);
+
+   switch(STATE)
+   case STATE_INIT
+     send_multicast(Request_Membership)
+
+   case STATE_MASTERFOUND
+     if (MAXREQ > 0) {
+       send_multicast(Get_BrowseList);
+       MAXREQ--: }
+     else
+       setState(STATE_FORCEELECTION);
+
+   case STATE_BROWSELIST_RCVD
+     setup_unicast 
+
 }
 
 setup_multicast() {
