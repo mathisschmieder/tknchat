@@ -39,20 +39,44 @@ while true
         send_multicast(Force_Election);
         send_multicast(OS_Level);
         setState(STATE_I_AM_MASTER);
+	MasterDelay = 4; // wait 3 cycles until we are sure we are TEH MAST0R
    
       case STATE_I_AM_MASTER
-        //nothing to do here? 
+        if (MasterDelay > 1)
+          MasterDelay--
+        else if (MasterDelay == 1) {
+          send_multicast(get_ClientCredentials);
+          MasterDelay = 0;
+        }
    } else {
       if ( data_on_multicast ) {
         if (((STATE == STATE_INIT) || (STATE == STATE_FORCEELECTION)) && (data_on_multicast.type == I_Am_Master))
           setState(STATE_MASTERFOUND);
-        else if ((STATE == STATE_I_AM_MASTER) && (data_on_multicast.type == OS_Level) && (data_on_multicast.value > OS_Level)
+        else if ((STATE == STATE_I_AM_MASTER) && (data_on_multicast.type == OS_Level) && (data_on_multicast.value > OS_Level))
           setState(STATE_MASTERFOUND);
+        else if ((STATE == STATE_I_AM_MASTER) && (data_on_multicast.type == RequestMembership))
+          send_multicast(I_Am_Master);
+        else if ((STATE == STATE_I_AM_MASTER) && (data_on_multicast.type == Get_BrowseList))
+          send_multicast(BrowseList);
+        else if ((STATE == STATE_I_AM_MASTER) && (data_on_multicast.type == ClientCredentials))
+          update_masterlist(data_on_multicast.value);
+        // TODO: Just got master, ask all clients for their credentials
         else if ((STATE == STATE_MASTERFOUND) && (data_on_multicast.type == BrowseList)) {
           setup_browselist(data_on_multicast.value);
           setState(STATE_BROWSELIST_RCVD);
-        }
-
+        } else if ((STATE == STATE_BROWSELIST_RCVD) && (data_on_multicast.type == BrowseList))
+	   update_browselist(data_on_multicast.value);
+        else if ((STATE == STATE_BROWSELIST_RCVD) && (data_on_multicast.type == Force_Election)) {
+           send_multicast(OS_Level);
+           setState(STATE_I_AM_MASTER);
+        } else if ((STATE != STATE_I_AM_MASTER) &&  (data_in_multicast.type == get_ClientCredentials))
+          send_multicast(ClientCredentials)
+     } else if ( data_on_unicast )
+        display(data_on_unicast);
+     else if ( data_on_stdin )
+        handleInput(stdin);
+     }
+     
 }
 
 setup_multicast() {
