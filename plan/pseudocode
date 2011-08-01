@@ -12,25 +12,46 @@ setup_multicast();
 init_filedesriptors();
 
 setState(STATE_INIT);
+send_multicast(Request_Membership)
 
 while true
    
    resetGlobalTimer();
-   select(filedescriptors);
+   retval = select(filedescriptors);
 
-   switch(STATE)
-   case STATE_INIT
-     send_multicast(Request_Membership)
-
-   case STATE_MASTERFOUND
-     if (MAXREQ > 0) {
-       send_multicast(Get_BrowseList);
-       MAXREQ--: }
-     else
-       setState(STATE_FORCEELECTION);
-
-   case STATE_BROWSELIST_RCVD
-     setup_unicast 
+   if (retval == 0) {
+      switch(STATE)
+      case STATE_INIT
+        setState(STATE_FORCEELECTION);
+   
+      case STATE_MASTERFOUND
+        if (MAXREQ > 0) {
+          send_multicast(Get_BrowseList);
+          MAXREQ--: }
+        else
+          setState(STATE_FORCEELECTION);
+   
+      case STATE_BROWSELIST_RCVD
+        if (unicast_is_setup != true)
+          setup_unicast();
+   
+      case STATE_FORCEELECTION
+        send_multicast(Force_Election);
+        send_multicast(OS_Level);
+        setState(STATE_I_AM_MASTER);
+   
+      case STATE_I_AM_MASTER
+        //nothing to do here? 
+   } else {
+      if ( data_on_multicast ) {
+        if (((STATE == STATE_INIT) || (STATE == STATE_FORCEELECTION)) && (data_on_multicast.type == I_Am_Master))
+          setState(STATE_MASTERFOUND);
+        else if ((STATE == STATE_I_AM_MASTER) && (data_on_multicast.type == OS_Level) && (data_on_multicast.value > OS_Level)
+          setState(STATE_MASTERFOUND);
+        else if ((STATE == STATE_MASTERFOUND) && (data_on_multicast.type == BrowseList)) {
+          setup_browselist(data_on_multicast.value);
+          setState(STATE_BROWSELIST_RCVD);
+        }
 
 }
 
