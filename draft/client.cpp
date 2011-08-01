@@ -42,7 +42,7 @@ int main (int argc, char *argv[ ])
   memset((char *) &groupSock, 0, sizeof(groupSock));
   groupSock.sin_family = AF_INET;
   groupSock.sin_port = htons(MC_GROUP_PORT);
-  groupSock.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+  groupSock.sin_addr.s_addr = inet_addr(MC_GROUP_ADDR);
 
 /* Disable loopback so you do not receive your own datagrams. */
 {
