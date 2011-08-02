@@ -34,3 +34,7 @@
 #define STATE_IDLE            0x07
 #define STATE_BROWSELIST_RCVD 0x08
 
+struct ClientCredentials {
+	char name[1024];
+	sockaddr_in * sockaddr;
+};
