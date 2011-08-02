@@ -22,7 +22,6 @@ int OS_Level = 0;
 
 ClientCredentials MyClientCredentials;
 
-
 int main(int argc, char** argv) {
   srand( time(NULL) ); //maybe take a better seed
   OS_Level = rand() % 65535 + 1;
@@ -104,7 +103,9 @@ int setup_multicast() {
   return sd;
 }
 
-
+int send_multicast(char* data) {
+  return sendto(sd, data, sizeof(data), 0, (struct sockaddr*)&msock, sizeof(msock));
+}
 
 
 

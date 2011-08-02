@@ -44,4 +44,4 @@ int sd; // datagram socket
 sockaddr_in * getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
-
+int send_multicast(char*);
