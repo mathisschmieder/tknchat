@@ -38,6 +38,15 @@ struct ClientCredentials {
 	char name[1024];
 	sockaddr_in * sockaddr;
 };
+
+static struct option long_options[] = { 
+  { "help",       0, NULL, 'h' }, 
+  { "version",    0, NULL, 'v' }, 
+  { "interface",  1, NULL, 'i' }, 
+  { "nick",       1, NULL, 'n' }, 
+  { NULL,         0, NULL,  0  } 
+}; 
+
 struct sockaddr_in msock;
 int sd; // datagram socket
 
