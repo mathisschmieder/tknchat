@@ -11,6 +11,8 @@
 
 #include "tknchat.h"
 
+int debug = 0;
+
 // argument parse 
 int option_index = 0;
 const char* eth = NULL; 
@@ -144,10 +146,19 @@ int main(int argc, char** argv) {
   return 0;
 }
 
+void pdebug(const char* message)
+{
+  #ifdef DEBUG
+  printf("DEBUG %s\n", message);
+  #endif
+}
+
 void version() 
 {
+  // TODO: git version?
   printf("tknchat v0.1\n");
 }
+
 void usage()
 {
   printf("usage:\n");
@@ -159,6 +170,7 @@ void usage()
 
 void parse_options(int argc, char** argv) {
   
+  pdebug("DEBUG");
   int ret;
   
   while ((ret = getopt_long(argc,argv,"hvi:n:",
@@ -174,11 +186,9 @@ void parse_options(int argc, char** argv) {
       exit(0);
       break;               
     case 'i':
-      //printf("interface: %s\n", optarg);
       eth = optarg;
       break;               
     case 'n':
-      //printf("nick: %s\n", optarg);
       nick = optarg;
       break;               
     }
@@ -255,6 +265,7 @@ int setup_multicast() {
      exit(1);
    }
 
+  pdebug("multicast set up");
   return sd;
 }
 
