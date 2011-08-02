@@ -91,6 +91,12 @@ int main(int argc, char *argv[])
   else
   printf("Adding multicast group...OK.\n");
 
+  strcpy(databuf, "puller"); 
+  printf("sending %s\n", databuf);
+  sendto(sd,databuf,sizeof(databuf), 0, (struct sockaddr*)&localSock, sizeof(localSock)); 
+
+
+
 
 /* SELECT */
 printf("SELECT\n");

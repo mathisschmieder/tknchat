@@ -31,7 +31,7 @@ int main (int argc, char *argv[ ])
   printf("Opening datagram socket....OK.\n");
  
   int reuse = 1;
-  if(setsockopt(sd, SOL_SOCKET, SO_BROADCAST, (char *)&reuse, sizeof(reuse)) < 0)
+  if(setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0)
   {
     perror("Setting SO_REUSEADDR error");
     exit(1);
