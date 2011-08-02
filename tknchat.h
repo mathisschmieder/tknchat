@@ -47,3 +47,10 @@ static struct option long_options[] = {
   { NULL,         0, NULL,  0  } 
 }; 
 
+struct sockaddr_in msock;
+int sd; // datagram socket
+
+sockaddr_in * getIP(const char*);
+int init_fdSet(fd_set*);
+int setup_multicast();
+int send_multicast(char*);

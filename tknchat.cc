@@ -62,40 +62,5 @@ int main(int argc, char** argv) {
   srand( time(NULL) ); //maybe take a better seed
   OS_Level = rand() % 65535 + 1;
 
-  if (eth == NULL) 
-    eth = "eth0"; 
-    //const char* eth = "eth0"; //TODO: get passed argument
+  if (eth 
 
-  MyClientCredentials.sockaddr = getIP(eth);
-  if (nick == NULL)
-  {
-    MyClientCredentials.name[1023] = '\0';
-    gethostname(MyClientCredentials.name, 1023);
-    nick = MyClientCredentials.name;
-  }
-
-  // TODO: handle nonexistant interfaces, which result in 1 ~ 1.0.0.0
-  printf("My IP: %s and my nick: %s\n", inet_ntoa(MyClientCredentials.sockaddr->sin_addr), nick);
-
-
-
-  return 0;
-}
-
-sockaddr_in * getIP(const char* eth) {
-  struct ifaddrs * ifAddrStruct=NULL;
-  struct ifaddrs * ifa=NULL;
-  struct sockaddr_in * sockaddr;
-
-  getifaddrs(&ifAddrStruct);
- 
-  for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-    if ((ifa->ifa_addr != NULL) && (ifa->ifa_addr->sa_family==AF_INET) && (strcmp(ifa->ifa_name, eth) == 0)) {
-        sockaddr = (struct sockaddr_in *)(ifa->ifa_addr);
-       break;
-    }
-  }
-  freeifaddrs(ifAddrStruct);
-
-  return sockaddr;
-}
