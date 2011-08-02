@@ -24,6 +24,8 @@ struct timeval globalTimer;
 char buf[MAX_MSG_LEN];
 int buflen;
 int OS_Level = 0;
+int retval;
+mc_packet request;
 
 ClientCredentials MyClientCredentials;
 
@@ -48,6 +50,26 @@ int main(int argc, char** argv) {
 
   sd = setup_multicast();
   init_fdSet(&rfds);
+  
+  request.type = MC_REQUEST_MEMBERSHIP;
+  send_multicast(request);
+
+  setNewState(STATE_INIT);
+
+  globalTimer.tv_sec = 1;
+  globalTimer.tv_usec = 0;
+
+  for (;;) { // main loop
+    
+    retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
+    if (FD_ISSET(sd, &rfds)) {
+      mc_packet fnord;
+      recv(sd, &fnord, sizeof(fnord), 0);
+    }
+    init_fdSet(&rfds);
+    setGlobalTimer(1,0);
+  }
+
 
   close(sd);
   return 0;
@@ -126,6 +148,13 @@ int setup_multicast() {
     exit(1);
   }
 
+  char loopch = 0;
+  if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&loopch, sizeof(loopch)) < 0) {
+    perror("Error setting IP_MULTICAST_LOOP");
+    close(sd);
+    exit(1);
+  }
+
   memset((char* ) &msock, 0, sizeof(msock));
   msock.sin_family = AF_INET;
   msock.sin_port = htons(MC_GROUP_PORT);
@@ -146,14 +175,48 @@ int setup_multicast() {
   return sd;
 }
 
-int send_multicast(char* data) {
-  return sendto(sd, data, sizeof(data), 0, (struct sockaddr*)&msock, sizeof(msock));
+int send_multicast(mc_packet data) {
+  return sendto(sd, (char *)&data, sizeof(data), 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
 
+void setNewState(int state) {
+  appl_state = state;
+}
 
+int getState() {
+  return appl_state;
+}
 
+void setGlobalTimer(int sec, int usec) {
+  static int i_sec;
+  static int i_usec;
 
+  if ((globalTimer.tv_sec == -1) && (globalTimer.tv_usec == -1))
+    {
+      printf("1\n");
+      globalTimer.tv_sec  = i_sec;
+      globalTimer.tv_usec = i_usec;
+      return;
+    }
+
+  i_sec  = sec;
+  i_usec = usec;
+
+  if (sec <= globalTimer.tv_sec)
+    if (usec <= globalTimer.tv_usec)
+       printf("2\n");
+  {
+	globalTimer.tv_sec  = sec;
+	globalTimer.tv_usec = usec;
+      }
+
+  if ((globalTimer.tv_sec == 0) && (globalTimer.tv_usec == 0))
+    {      printf("3\n");
+      globalTimer.tv_sec  = sec;
+      globalTimer.tv_usec = usec;
+    }
+}
 
 
 

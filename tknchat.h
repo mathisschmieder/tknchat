@@ -34,18 +34,40 @@
 #define STATE_IDLE            0x07
 #define STATE_BROWSELIST_RCVD 0x08
 
+#define MC_REQUEST_MEMBERSHIP     0x01
+#define MC_FORCE_ELECTION         0x02
+#define MC_OS_LEVEL               0x03
+#define MC_I_AM_MASTER            0x04
+#define MC_GET_BROWSELIST         0x05
+#define MC_CLIENTCREDENTIALS      0x06
+#define MC_BROWSELIST             0x07
+#define MC_GET_CLIENTCREDENTIALS  0x08
+
 struct ClientCredentials {
 	char name[1024];
 	sockaddr_in * sockaddr;
 };
+
+struct mc_packet {
+  int type;
+  struct data {
+    int OS_Level;
+    struct ClientCredentials;
+    //whole browselist (linked list)
+  };
+};
+
 struct sockaddr_in msock;
 int sd; // datagram socket
 
 sockaddr_in * getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
-int send_multicast(char*);
+int send_multicast(mc_packet);
 void parse_options(int, char**);
+void setNewState(int);
+int getState();
+void setGlobalTimer(int, int);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
