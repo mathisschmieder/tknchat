@@ -10,7 +10,6 @@ Start:
 -wenn antwort I_Am_Master 
     
        -> MasterFound
-    -sende Request_MemberShip
     -sende Get_BrowseList
     -timer, MAXREQ -1
     -wenn empfang von Browselist
