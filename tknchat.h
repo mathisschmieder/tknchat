@@ -50,11 +50,9 @@ struct ClientCredentials {
 
 struct mc_packet {
   int type;
-  struct data {
-    int OS_Level;
-    struct ClientCredentials;
-    //whole browselist (linked list)
-  };
+  int OS_Level;
+  struct ClientCredentials;
+  //whole browselist (linked list)
 };
 
 struct sockaddr_in msock;

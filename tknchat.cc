@@ -25,7 +25,8 @@ char buf[MAX_MSG_LEN];
 int buflen;
 int OS_Level = 0;
 int retval;
-mc_packet request;
+int masterdelay;
+int maxreq = 5; //todo: this is not the proper place
 
 ClientCredentials MyClientCredentials;
 
@@ -51,6 +52,7 @@ int main(int argc, char** argv) {
   sd = setup_multicast();
   init_fdSet(&rfds);
   
+  mc_packet request;
   request.type = MC_REQUEST_MEMBERSHIP;
   send_multicast(request);
 
@@ -62,10 +64,59 @@ int main(int argc, char** argv) {
   for (;;) { // main loop
     
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
-    if (FD_ISSET(sd, &rfds)) {
-      mc_packet fnord;
-      recv(sd, &fnord, sizeof(fnord), 0);
-    }
+    assert(retval >= 0);
+
+    if (retval == 0) {
+      // STATE MACHINE
+      switch(appl_state) {
+        
+        case STATE_INIT:
+          setNewState(STATE_FORCE_ELECTION);
+          break;
+        
+        case STATE_MASTER_FOUND:
+          if (maxreq > 0) { //this has yet to be set
+            mc_packet request;
+            request.type = MC_GET_BROWSELIST;
+            send_multicast(request);
+            maxreq--;
+          } else
+            setNewState(STATE_FORCE_ELECTION);
+          break;
+
+        case STATE_BROWSELIST_RCVD:
+          //setup_unicast();
+          break;
+
+        case STATE_FORCE_ELECTION:
+          mc_packet request;
+          request.type = MC_FORCE_ELECTION;
+          send_multicast(request);
+          request.type = MC_OS_LEVEL;
+          request.OS_Level = OS_Level;
+          send_multicast(request);
+          setNewState(STATE_I_AM_MASTER);
+          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+          break;
+
+        case STATE_I_AM_MASTER:
+          if (masterdelay > 1)
+            masterdelay--;
+          else if (masterdelay == 1) {
+            mc_packet request;
+            request.type = MC_GET_CLIENTCREDENTIALS;
+            masterdelay = 0;
+          }
+          break;
+      }
+    } else {
+
+      if (FD_ISSET(sd, &rfds)) {
+        mc_packet fnord;
+        recv(sd, &fnord, sizeof(fnord), 0);
+      }
+
+    } 
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
   }
