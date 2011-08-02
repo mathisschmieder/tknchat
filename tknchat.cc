@@ -144,6 +144,19 @@ int main(int argc, char** argv) {
   return 0;
 }
 
+void version() 
+{
+  printf("tknchat v0.1\n");
+}
+void usage()
+{
+  printf("usage:\n");
+  printf(" -h --help\t print this help\n");
+  printf(" -v --version\t show version\n");
+  printf(" -i --interface\t set primary interface (default eth0)\n");
+  printf(" -n --nick\t set nickname (default Hostname)\n");
+}
+
 void parse_options(int argc, char** argv) {
   
   int ret;
@@ -152,12 +165,13 @@ void parse_options(int argc, char** argv) {
 			    long_options, &option_index)) != EOF)
     switch (ret) {
     case 'h':
-      //usage(argv[0]);
-      printf("usage\n");
+      version();
+      usage();
+      exit(0);
       break;               
     case 'v':
-      //version(argv[0]);
-      printf("version\n");
+      version();
+      exit(0);
       break;               
     case 'i':
       //printf("interface: %s\n", optarg);
