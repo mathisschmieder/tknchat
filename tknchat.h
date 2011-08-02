@@ -45,3 +45,11 @@ sockaddr_in * getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
 int send_multicast(char*);
+
+static struct option long_options[] = { 
+  { "help",       0, NULL, 'h' }, 
+  { "version",    0, NULL, 'v' }, 
+  { "interface",  1, NULL, 'i' }, 
+  { "nick",       1, NULL, 'n' }, 
+  { NULL,         0, NULL,  0  } 
+}; 
