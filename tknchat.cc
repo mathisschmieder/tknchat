@@ -29,6 +29,30 @@ ClientCredentials MyClientCredentials;
 
 sockaddr_in * getIP(const char*);
 
+
+int main(int argc, char** argv) {
+  parse_options(argc, argv);
+  
+  srand( time(NULL) ); //maybe take a better seed
+  OS_Level = rand() % 65535 + 1;
+
+  if (eth == NULL) 
+    eth = "eth0"; 
+
+  MyClientCredentials.sockaddr = getIP(eth);
+  MyClientCredentials.name[1023] = '\0';
+  if (nick == NULL)
+    gethostname(MyClientCredentials.name, 1023);
+  else
+    strncpy(MyClientCredentials.name, nick, sizeof(MyClientCredentials.name));
+
+  sd = setup_multicast();
+  init_fdSet(&rfds);
+
+  close(sd);
+  return 0;
+}
+
 void parse_options(int argc, char** argv) {
   
   int ret;
@@ -55,36 +79,6 @@ void parse_options(int argc, char** argv) {
     }
 
 }
-
-int main(int argc, char** argv) {
-  parse_options(argc, argv);
-  
-  srand( time(NULL) ); //maybe take a better seed
-  OS_Level = rand() % 65535 + 1;
-
-  if (eth == NULL) 
-    eth = "eth0"; 
-    //const char* eth = "eth0"; //TODO: get passed argument
-
-  MyClientCredentials.sockaddr = getIP(eth);
-  if (nick == NULL)
-  {
-    MyClientCredentials.name[1023] = '\0';
-    gethostname(MyClientCredentials.name, 1023);
-    nick = MyClientCredentials.name;
-  }
-
-  init_fdSet(&rfds);
-  // TODO: handle nonexistant interfaces, which result in 1 ~ 1.0.0.0
-  printf("My IP: %s and my nick: %s\n", inet_ntoa(MyClientCredentials.sockaddr->sin_addr), nick);
-
-
-  sd = setup_multicast();
-
-  close(sd);
-  return 0;
-}
-
 sockaddr_in * getIP(const char* eth) {
   struct ifaddrs * ifAddrStruct=NULL;
   struct ifaddrs * ifa=NULL;
@@ -110,6 +104,9 @@ int init_fdSet(fd_set* fds) {
 
   // add console filedescriptor
   FD_SET(0, fds);
+
+  // add multicast filedescriptor
+  FD_SET(sd, fds);
 
 }
 

@@ -45,6 +45,7 @@ sockaddr_in * getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
 int send_multicast(char*);
+void parse_options(int, char**);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
