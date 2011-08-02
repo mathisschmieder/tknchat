@@ -75,14 +75,17 @@ int main(int argc, char** argv) {
           break;
         
         case STATE_MASTER_FOUND:
-          printf("master found!\n");
           if (maxreq > 0) { //this has yet to be set
             mc_packet request;
             request.type = MC_GET_BROWSELIST;
             send_multicast(request);
             maxreq--;
-          } else
+          } else {
+            mc_packet request;
+            request.type = MC_FORCE_ELECTION;
+            send_multicast(request);
             setNewState(STATE_FORCE_ELECTION);
+          }
           break;
 
         case STATE_BROWSELIST_RCVD:
@@ -91,8 +94,6 @@ int main(int argc, char** argv) {
 
         case STATE_FORCE_ELECTION:
           mc_packet request;
-          request.type = MC_FORCE_ELECTION;
-          send_multicast(request);
           request.type = MC_OS_LEVEL;
           request.OS_Level = OS_Level;
           send_multicast(request);
@@ -123,6 +124,12 @@ int main(int argc, char** argv) {
           mc_packet response;
           response.type = MC_I_AM_MASTER;
           send_multicast(response);
+        } else if (mc_recv.type == MC_FORCE_ELECTION) {
+          mc_packet response;
+          response.type = MC_OS_LEVEL;
+          response.OS_Level = OS_Level;
+          send_multicast(response);
+          setNewState(STATE_FORCE_ELECTION);
         }
 
       }
