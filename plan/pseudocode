@@ -79,7 +79,48 @@ while true
      
 }
 
-setup_multicast() {
-socket_setup();
-join_multicast_group();
+int setup_multicast() {
+  socket_setup();
+  join_multicast_group();
+  return retval; //success or not
+}
+
+int setup_unicast() {
+  for (i in browselist)
+    browselist(i).socket = socket_setup(i);
+  return retval; //success or not
+}
+
+setState(int STATE) {
+  appl_state = STATE;
+}
+
+int getState() {
+  return appl_state;
+}
+
+int send_multicast( data ) {
+  retval = send(multicast, data);
+  return retval;
+}
+
+int send_unicast( data ) {
+  for (i in browselist)
+    send(browselist(i).socket, data);
+  return retval;
+}
+
+display( data ) {
+  //display data to screen
+}
+
+handleInput( data ) {
+  if (data[0] == "/")	//input is command
+    controlCommand(data);
+  else
+    send_unicast(data);
+}
+
+resetGlobalTimer() {
+  GlobalTimer.sec = 1;
 }
