@@ -38,3 +38,10 @@ struct ClientCredentials {
 	char name[1024];
 	sockaddr_in * sockaddr;
 };
+struct sockaddr_in msock;
+int sd; // datagram socket
+
+sockaddr_in * getIP(const char*);
+int init_fdSet(fd_set*);
+int setup_multicast();
+
