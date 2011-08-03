@@ -77,7 +77,7 @@ void setGlobalTimer(int, int);
 void pdebug(const char*);
 packet create_packet(int, char*);
 local_packet receive_packet(packet);
-void addToBrowseList(char*);
+void addToBrowseList(char*, int);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
@@ -92,3 +92,8 @@ struct BrowseList {
   char ip[INET_ADDRSTRLEN];
 } browselist [MAX_MEMBERS];
 
+struct BrowseListItem {
+  char ip[INET_ADDRSTRLEN];
+  int browselistlength;
+  int i;
+};
