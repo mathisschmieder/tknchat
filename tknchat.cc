@@ -64,8 +64,7 @@ int main(int argc, char** argv) {
   sd = setup_multicast();
   init_fdSet(&rfds);
   
-  request = create_packet(SEARCHING_MASTER, NULL);
-  send_multicast(request);
+  send_multicast(SEARCHING_MASTER, NULL);
 
   setNewState(STATE_INIT);
 
@@ -89,12 +88,10 @@ int main(int argc, char** argv) {
         case STATE_MASTER_FOUND:
           pdebug("STATE_MASTER_FOUND");
           if (maxreq > 0) {
-            request = create_packet(GET_BROWSE_LIST, NULL);
-            send_multicast(request);
+            send_multicast(GET_BROWSE_LIST, NULL);
             maxreq--;
           } else {
-            request = create_packet(FORCE_ELECTION, NULL);
-            send_multicast(request);
+            send_multicast(FORCE_ELECTION, NULL);
             setNewState(STATE_FORCE_ELECTION);
           }
           break;
@@ -109,8 +106,7 @@ int main(int argc, char** argv) {
 
           char char_OS_Level[sizeof(OS_Level)*8+1];
           sprintf(char_OS_Level, "%d", htonl(OS_Level));
-          request = create_packet(MASTER_LEVEL, char_OS_Level);
-          send_multicast(request);
+          send_multicast(MASTER_LEVEL, char_OS_Level);
 
           setNewState(STATE_I_AM_MASTER);
           masterdelay = 4; // wait 3 cycles until we are sure that we are the master
@@ -144,15 +140,12 @@ int main(int argc, char** argv) {
         }
         else if ((appl_state == STATE_I_AM_MASTER) && (mc_recv.type == MC_REQUEST_MEMBERSHIP)) {
           pdebug("Sending I_AM_MASTER");
-          mc_packet response;
-          response.type = MC_I_AM_MASTER;
-          //send_multicast(response);
+          send_multicast(I_AM_MASTER, NULL);
         } else if (mc_recv.type == MC_FORCE_ELECTION) {
-          mc_packet response;
-          response.type = MC_OS_LEVEL;
-          response.OS_Level = OS_Level;
-          //send_multicast(response);
-          setNewState(STATE_FORCE_ELECTION);
+            char char_OS_Level[sizeof(OS_Level)*8+1];
+            sprintf(char_OS_Level, "%d", htonl(OS_Level));
+            send_multicast(MASTER_LEVEL, char_OS_Level);
+            setNewState(STATE_FORCE_ELECTION);
         }
 
       }
@@ -290,8 +283,14 @@ int setup_multicast() {
   return sd;
 }
 
-int send_multicast(packet data) {
-  return sendto(sd, (char *)&data, sizeof(data), 0, (struct sockaddr*)&msock, sizeof(msock));
+int send_multicast(int type, char* data) {
+  packet packet;
+  packet = create_packet(type, data);
+  if ( data != NULL)
+    //                                    +4 (header) + 4 (magic 4 data bytes.. TODO!)
+    return sendto(sd, (char *)&packet, sizeof(data) + 8, 0, (struct sockaddr*)&msock, sizeof(msock));
+  else
+    return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
 
@@ -342,17 +341,18 @@ packet create_packet(int type, char* data) {
   #endif
 
   packet packet;
-  packet.version = 0x01;
-  packet.type = type;
-  packet.options = 0;
-  packet.seqno = seqno % 255; // sequence number modulo 255
+  uint32_t header;
+  uint16_t datalen;
 
   if (data != NULL) { //we dont need neither datalen nor data if there is no data
-    packet.datalen = sizeof(data);
-    char databuf[sizeof(data)];
-    strncpy(databuf, data, sizeof(data));
+    datalen = sizeof(data);
+    //                              TODO: magic 4 data bytes
+    strncpy(packet.data, data, sizeof(data)+4);
   } else
-    packet.datalen = 0;
-
+    datalen = 0;
+  //        Headerformat
+  //        version 2   type 5        options 1 seqno 8      datalen 16 = 32 bit
+  header = (0x01 << 30)|(type << 25)|(0 << 24)|(seqno << 16)|(datalen);
+  packet.header = htonl(header);
   return packet;
 }

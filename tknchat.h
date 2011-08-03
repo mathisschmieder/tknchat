@@ -59,11 +59,7 @@
 #define BROWSE_LIST         0x13
 
 struct packet {
-  int version;
-  int type;
-  int options;
-  int seqno;
-  int datalen;
+  uint32_t header; 
   char data[65536];
 };
 
@@ -85,7 +81,7 @@ int sd; // datagram socket
 sockaddr_in * getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
-int send_multicast(packet);
+int send_multicast(int, char*);
 void parse_options(int, char**);
 void setNewState(int);
 int getState();
