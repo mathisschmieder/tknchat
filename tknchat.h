@@ -17,6 +17,7 @@
 #include <syslog.h>
 #include <cstring>
 #include <ifaddrs.h>
+#include <netdb.h>
 
 #define MC_GROUP_ADDR "225.2.0.1"
 #define MC_GROUP_PORT 5020
@@ -62,15 +63,10 @@ struct local_packet {
   char data[65536];
 };
 
-struct ClientCredentials { //deprecated - dont use this
-	char name[1024];
-	sockaddr_in * sockaddr;
-};
-
 struct sockaddr_in msock;
 int sd; // datagram socket
 
-sockaddr_in * getIP(const char*);
+in_addr getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
 int send_multicast(int, char*);
@@ -81,6 +77,7 @@ void setGlobalTimer(int, int);
 void pdebug(const char*);
 packet create_packet(int, char*);
 local_packet receive_packet(packet);
+void addToBrowseList(in_addr);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
@@ -90,11 +87,8 @@ static struct option long_options[] = {
   { NULL,         0, NULL,  0  } 
 }; 
 
-struct BrowseListItem {
-  ClientCredentials member;
-  BrowseListItem *next;
-};
-
 struct BrowseList {
-  BrowseListItem *head;
-};
+  char name[1024];
+  char ip[INET_ADDRSTRLEN];
+} browselist [MAX_MEMBERS];
+

@@ -32,11 +32,9 @@ int retval;
 int masterdelay;
 int maxreq;
 int seqno;
-sockaddr_in * localip;
-
-
-sockaddr_in * getIP(const char*);
-
+int browselistlength = 0;
+char host[1024];
+in_addr localip;
 
 int main(int argc, char** argv) {
   parse_options(argc, argv);
@@ -48,10 +46,15 @@ int main(int argc, char** argv) {
   printf("DEBUG OS_Level %d\n", OS_Level);
   #endif
 
+  host[1023] = '\0';
+  gethostname(host, 1023);
+
   if (eth == NULL) 
     eth = "eth0"; 
 
   localip = getIP(eth);
+
+  addToBrowseList(localip);
 
   sd = setup_multicast();
   init_fdSet(&rfds);
@@ -156,7 +159,6 @@ int main(int argc, char** argv) {
           printf("got client credentials: %s\n", mc_packet.data);
         } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
           pdebug("Sending MEMBER_INFO");
-          send_multicast(SET_MEMBER_INFO, inet_ntoa(localip->sin_addr));
         } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == BROWSE_LIST)) {
           setNewState(STATE_BROWSELIST_RCVD);
         }
@@ -219,7 +221,7 @@ void parse_options(int argc, char** argv) {
     }
 
 }
-sockaddr_in * getIP(const char* eth) {
+in_addr getIP(const char* eth) {
   struct ifaddrs * ifAddrStruct=NULL;
   struct ifaddrs * ifa=NULL;
   struct sockaddr_in * sockaddr;
@@ -234,7 +236,7 @@ sockaddr_in * getIP(const char* eth) {
   }
   freeifaddrs(ifAddrStruct);
 
-  return sockaddr;
+  return sockaddr->sin_addr;
 }
 
 int init_fdSet(fd_set* fds) {
@@ -391,4 +393,14 @@ local_packet receive_packet(packet packet) {
   }
 
   return local_packet;
+}
+
+void addToBrowseList(in_addr clientip) {
+  strncpy(browselist[browselistlength].ip, inet_ntoa(clientip), INET_ADDRSTRLEN);
+
+  hostent* host;
+  host = gethostbyaddr((char*)&clientip, sizeof(clientip), AF_INET);
+  strncpy(browselist[browselistlength].name, host->h_name, strlen(host->h_name));
+
+  browselistlength++;
 }
