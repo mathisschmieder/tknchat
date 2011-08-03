@@ -350,7 +350,8 @@ packet create_packet(int type, char* data) {
     datalen = sizeof(data);
     //                              TODO: magic 4 data bytes
     strncpy(packet.data, data, sizeof(data)+4);
-    printf("sending data: %d\n", ntohl(atoi(packet.data)));
+     printf("sending data: %d\n", ntohl(atoi(data)));
+     printf("sending data: %d\n", ntohl(atoi(packet.data)));
   } else
     datalen = 0;
   //        Headerformat
