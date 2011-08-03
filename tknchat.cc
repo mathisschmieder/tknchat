@@ -114,8 +114,8 @@ int main(int argc, char** argv) {
             masterdelay--;
           else if (masterdelay == 1) {
             masterdelay = 0; // we now are sure that we are the master
-            printf("requesting member info\n");
-          //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
+            pdebug("requesting member info");
+            send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
           }
           break;
       }
@@ -143,6 +143,9 @@ int main(int argc, char** argv) {
           pdebug("Sending I_AM_MASTER");
           send_multicast(I_AM_MASTER, NULL);
           send_multicast(GET_MEMBER_INFO, NULL);
+        } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == GET_BROWSE_LIST)) {
+          pdebug("Sending BrowseList");
+          send_multicast(BROWSE_LIST, NULL); //TODO: send actual browse list
         } else if (mc_packet.type == FORCE_ELECTION) {
           char char_OS_Level[sizeof(OS_Level)*8+1];
           sprintf(char_OS_Level, "%d", htonl(OS_Level));
@@ -154,6 +157,8 @@ int main(int argc, char** argv) {
         } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
           pdebug("Sending MEMBER_INFO");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip->sin_addr));
+        } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == BROWSE_LIST)) {
+          setNewState(STATE_BROWSELIST_RCVD);
         }
       }
     } 
