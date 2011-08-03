@@ -130,28 +130,27 @@ int main(int argc, char** argv) {
         recv(sd, &mc_recv, sizeof(mc_recv), 0);
         local_packet mc_packet;
         mc_packet = receive_packet(mc_recv);
-       /* if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_recv.type = MC_I_AM_MASTER)) {
+        if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_packet.type == I_AM_MASTER)) {
           pdebug("Master found");
           maxreq = 5; 
           setNewState(STATE_MASTER_FOUND);
         }
-        else if ((appl_state == STATE_I_AM_MASTER) && (mc_recv.type == MC_OS_LEVEL) && (mc_recv.OS_Level > OS_Level)) {
+        else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == MASTER_LEVEL) 
+            && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
           pdebug("Master found");
           maxreq = 5;
           setNewState(STATE_MASTER_FOUND);
         }
-        else if ((appl_state == STATE_I_AM_MASTER) && (mc_recv.type == MC_REQUEST_MEMBERSHIP)) {
+        else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SEARCHING_MASTER)) {
           pdebug("Sending I_AM_MASTER");
           send_multicast(I_AM_MASTER, NULL);
-        } else if (mc_recv.type == MC_FORCE_ELECTION) {
+        } else if (mc_packet.type == FORCE_ELECTION) {
             char char_OS_Level[sizeof(OS_Level)*8+1];
             sprintf(char_OS_Level, "%d", htonl(OS_Level));
             send_multicast(MASTER_LEVEL, char_OS_Level);
             setNewState(STATE_FORCE_ELECTION);
         }
-*/
       }
-
     } 
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
@@ -289,8 +288,8 @@ int send_multicast(int type, char* data) {
   packet packet;
   packet = create_packet(type, data);
   if ( data != NULL)
-    //                                    +4 (header) + 4 (magic 4 data bytes.. TODO!)
-    return sendto(sd, (char *)&packet, sizeof(data) + 8, 0, (struct sockaddr*)&msock, sizeof(msock));
+    //                                    +4 (header) + 8 (magic 4 data bytes.. TODO!)
+    return sendto(sd, (char *)&packet, sizeof(data) + 12, 0, (struct sockaddr*)&msock, sizeof(msock));
   else
     return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
@@ -349,9 +348,7 @@ packet create_packet(int type, char* data) {
   if (data != NULL) { //we dont need neither datalen nor data if there is no data
     datalen = sizeof(data);
     //                              TODO: magic 4 data bytes
-    strncpy(packet.data, data, sizeof(data)+4);
-     printf("sending data: %d\n", ntohl(atoi(data)));
-     printf("sending data: %d\n", ntohl(atoi(packet.data)));
+    strncpy(packet.data, data, sizeof(data)+8);
   } else
     datalen = 0;
   //        Headerformat
@@ -374,9 +371,10 @@ local_packet receive_packet(packet packet) {
 
   printf("received type: %d\n", local_packet.type);
 
-  strncpy(local_packet.data, packet.data, sizeof(packet.data));
-
-  printf("received data: %d\n", ntohl(atoi(local_packet.data)));
+  if (local_packet.datalen != 0) {
+    strncpy(local_packet.data, packet.data, sizeof(packet.data));
+    printf("received data: %d\n", ntohl(atoi(local_packet.data)));
+  }
 
   return local_packet;
 }
