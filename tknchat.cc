@@ -369,11 +369,12 @@ local_packet receive_packet(packet packet) {
   local_packet.seqno = (header >> 16) & 255;
   local_packet.datalen = header & 65535;
 
+#ifdef DEBUG
   printf("received type: %d\n", local_packet.type);
+#endif
 
   if (local_packet.datalen != 0) {
     strncpy(local_packet.data, packet.data, sizeof(packet.data));
-    printf("received data: %d\n", ntohl(atoi(local_packet.data)));
   }
 
   return local_packet;
