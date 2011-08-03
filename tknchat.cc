@@ -66,6 +66,8 @@ int main(int argc, char** argv) {
   
   send_multicast(SEARCHING_MASTER, NULL);
 
+  send_multicast(DATA_PKT, (char*)"sooo ein grosser penis!");
+
   setNewState(STATE_INIT);
 
   globalTimer.tv_sec = 1;
@@ -379,6 +381,7 @@ local_packet receive_packet(packet packet) {
 
   if (local_packet.datalen != 0) {
     strncpy(local_packet.data, packet.data, sizeof(packet.data));
+    printf("data: %s\n", packet.data);
   }
 
   return local_packet;
