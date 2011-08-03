@@ -126,9 +126,11 @@ int main(int argc, char** argv) {
     } else {
 
       if (FD_ISSET(sd, &rfds)) {
-        mc_packet mc_recv;
+        packet mc_recv;
         recv(sd, &mc_recv, sizeof(mc_recv), 0);
-        if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_recv.type = MC_I_AM_MASTER)) {
+        local_packet mc_packet;
+        mc_packet = receive_packet(mc_recv);
+       /* if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_recv.type = MC_I_AM_MASTER)) {
           pdebug("Master found");
           maxreq = 5; 
           setNewState(STATE_MASTER_FOUND);
@@ -147,7 +149,7 @@ int main(int argc, char** argv) {
             send_multicast(MASTER_LEVEL, char_OS_Level);
             setNewState(STATE_FORCE_ELECTION);
         }
-
+*/
       }
 
     } 
@@ -355,4 +357,22 @@ packet create_packet(int type, char* data) {
   header = (0x01 << 30)|(type << 25)|(0 << 24)|(seqno << 16)|(datalen);
   packet.header = htonl(header);
   return packet;
+}
+
+local_packet receive_packet(packet packet) {
+  local_packet local_packet;
+  uint32_t header;
+
+  header = ntohl(packet.header);
+  local_packet.version = (header >> 30) & 3;
+  local_packet.type = (header >> 25) & 31;
+  local_packet.options = (header >> 24) & 1;
+  local_packet.seqno = (header >> 16) & 255;
+  local_packet.datalen = header & 65535;
+
+  printf("received type: %d\n", local_packet.type);
+
+  strncpy(local_packet.data, packet.data, local_packet.datalen);
+
+  return local_packet;
 }

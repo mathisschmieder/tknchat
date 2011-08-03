@@ -63,6 +63,15 @@ struct packet {
   char data[65536];
 };
 
+struct local_packet {
+  int version;
+  int type;
+  int options;
+  int datalen;
+  int seqno;
+  char data[65536];
+};
+
 struct ClientCredentials { //deprecated - dont use this
 	char name[1024];
 	sockaddr_in * sockaddr;
@@ -88,6 +97,7 @@ int getState();
 void setGlobalTimer(int, int);
 void pdebug(const char*);
 packet create_packet(int, char*);
+local_packet receive_packet(packet);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
