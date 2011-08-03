@@ -77,7 +77,7 @@ void setGlobalTimer(int, int);
 void pdebug(const char*);
 packet create_packet(int, char*);
 local_packet receive_packet(packet);
-void addToBrowseList(in_addr);
+void addToBrowseList(char*);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 

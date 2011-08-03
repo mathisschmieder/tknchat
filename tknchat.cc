@@ -54,8 +54,6 @@ int main(int argc, char** argv) {
 
   localip = getIP(eth);
 
-  addToBrowseList(localip);
-
   sd = setup_multicast();
   init_fdSet(&rfds);
   
@@ -118,6 +116,8 @@ int main(int argc, char** argv) {
           else if (masterdelay == 1) {
             masterdelay = 0; // we now are sure that we are the master
             pdebug("requesting member info");
+            browselistlength = 0;
+            addToBrowseList(inet_ntoa(localip));
             send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
           }
           break;
@@ -157,8 +157,10 @@ int main(int argc, char** argv) {
           setNewState(STATE_I_AM_MASTER);
         } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SET_MEMBER_INFO)) {
           printf("got client credentials: %s\n", mc_packet.data);
+          addToBrowseList(mc_packet.data);
         } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
           pdebug("Sending MEMBER_INFO");
+          send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == BROWSE_LIST)) {
           setNewState(STATE_BROWSELIST_RCVD);
         }
@@ -395,12 +397,17 @@ local_packet receive_packet(packet packet) {
   return local_packet;
 }
 
-void addToBrowseList(in_addr clientip) {
-  strncpy(browselist[browselistlength].ip, inet_ntoa(clientip), INET_ADDRSTRLEN);
+void addToBrowseList(char* clientip) {
+  pdebug("adding item to browse list");
+  strncpy(browselist[browselistlength].ip, clientip, INET_ADDRSTRLEN);
 
   hostent* host;
-  host = gethostbyaddr((char*)&clientip, sizeof(clientip), AF_INET);
+  in_addr ip;
+  ip.s_addr = inet_addr(clientip);
+  host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
   strncpy(browselist[browselistlength].name, host->h_name, strlen(host->h_name));
+
+  printf("host: %s\n", browselist[browselistlength].name);
 
   browselistlength++;
 }
