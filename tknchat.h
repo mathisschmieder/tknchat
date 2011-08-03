@@ -34,16 +34,6 @@
 #define STATE_IDLE            0x07
 #define STATE_BROWSELIST_RCVD 0x08
 
-// deprecated - dont use these
-#define MC_REQUEST_MEMBERSHIP     0x01
-#define MC_FORCE_ELECTION         0x02
-#define MC_OS_LEVEL               0x03
-#define MC_I_AM_MASTER            0x04
-#define MC_GET_BROWSELIST         0x05
-#define MC_CLIENTCREDENTIALS      0x06
-#define MC_BROWSELIST             0x07
-#define MC_GET_CLIENTCREDENTIALS  0x08
-
 #define CTRL_PKT            0x01
 #define SEARCHING_MASTER    0x02
 #define MASTER_LEVEL        0x03

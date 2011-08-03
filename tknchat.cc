@@ -32,10 +32,9 @@ int retval;
 int masterdelay;
 int maxreq;
 int seqno;
-packet request;
+sockaddr_in * localip;
 
-ClientCredentials MyClientCredentials;
-BrowseList MyBrowseList;
+
 sockaddr_in * getIP(const char*);
 
 
@@ -52,14 +51,7 @@ int main(int argc, char** argv) {
   if (eth == NULL) 
     eth = "eth0"; 
 
-  MyClientCredentials.sockaddr = getIP(eth);
-  MyClientCredentials.name[1023] = '\0';
-  if (nick == NULL)
-    gethostname(MyClientCredentials.name, 1023);
-  else
-    strncpy(MyClientCredentials.name, nick, sizeof(MyClientCredentials.name));
-
-  MyBrowseList.head = NULL;
+  localip = getIP(eth);
 
   sd = setup_multicast();
   init_fdSet(&rfds);
@@ -121,7 +113,8 @@ int main(int argc, char** argv) {
           if (masterdelay > 1)
             masterdelay--;
           else if (masterdelay == 1) {
-            masterdelay = 0;
+            masterdelay = 0; // we now are sure that we are the master
+            send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
           }
           break;
       }
@@ -148,12 +141,16 @@ int main(int argc, char** argv) {
         else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SEARCHING_MASTER)) {
           pdebug("Sending I_AM_MASTER");
           send_multicast(I_AM_MASTER, NULL);
+          send_multicast(GET_MEMBER_INFO, NULL);
         } else if (mc_packet.type == FORCE_ELECTION) {
-            char char_OS_Level[sizeof(OS_Level)*8+1];
-            sprintf(char_OS_Level, "%d", htonl(OS_Level));
-            send_multicast(MASTER_LEVEL, char_OS_Level);
-            masterdelay = 4; // wait 3 cycles until we are sure that we are the master
-            setNewState(STATE_I_AM_MASTER);
+          char char_OS_Level[sizeof(OS_Level)*8+1];
+          sprintf(char_OS_Level, "%d", htonl(OS_Level));
+          send_multicast(MASTER_LEVEL, char_OS_Level);
+          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+          setNewState(STATE_I_AM_MASTER);
+        } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
+          pdebug("Sending MEMBER_INFO");
+          send_multicast(SET_MEMBER_INFO, inet_ntoa(localip->sin_addr));
         }
       }
     } 
@@ -343,8 +340,8 @@ packet create_packet(int type, char* data) {
   seqno++; //increment sequence number by one
  
   #ifdef DEBUG
-  printf("DEBUG creating packet %d\n", seqno);
-  printf("DEBUG packet type: %d\n", type);
+  printf("DEBUG creating packet with seq no %d\n", seqno);
+  printf("DEBUG creating packet type: %d\n", type);
   #endif
 
   packet packet;
