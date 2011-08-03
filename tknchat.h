@@ -77,13 +77,6 @@ struct ClientCredentials { //deprecated - dont use this
 	sockaddr_in * sockaddr;
 };
 
-struct mc_packet { //deprecated - dont use this;
-  int type;
-  int OS_Level;
-  struct ClientCredentials;
-  //whole browselist (linked list)
-};
-
 struct sockaddr_in msock;
 int sd; // datagram socket
 

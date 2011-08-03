@@ -92,7 +92,12 @@ int main(int argc, char** argv) {
             maxreq--;
           } else {
             send_multicast(FORCE_ELECTION, NULL);
-            setNewState(STATE_FORCE_ELECTION);
+            char char_OS_Level[sizeof(OS_Level)*8+1];
+            sprintf(char_OS_Level, "%d", htonl(OS_Level));
+            send_multicast(MASTER_LEVEL, char_OS_Level);
+            pdebug("assuming I am master");
+            setNewState(STATE_I_AM_MASTER);
+            masterdelay = 4; // wait 3 cycles until we are sure that we are the master
           }
           break;
 
@@ -104,12 +109,6 @@ int main(int argc, char** argv) {
         case STATE_FORCE_ELECTION:
           pdebug("STATE_FORCE_ELECTION");
 
-          char char_OS_Level[sizeof(OS_Level)*8+1];
-          sprintf(char_OS_Level, "%d", htonl(OS_Level));
-          send_multicast(MASTER_LEVEL, char_OS_Level);
-
-          setNewState(STATE_I_AM_MASTER);
-          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
           break;
 
         case STATE_I_AM_MASTER:
@@ -117,8 +116,6 @@ int main(int argc, char** argv) {
           if (masterdelay > 1)
             masterdelay--;
           else if (masterdelay == 1) {
-            mc_packet request;
-            request.type = MC_GET_CLIENTCREDENTIALS;
             masterdelay = 0;
           }
           break;
@@ -148,7 +145,8 @@ int main(int argc, char** argv) {
             char char_OS_Level[sizeof(OS_Level)*8+1];
             sprintf(char_OS_Level, "%d", htonl(OS_Level));
             send_multicast(MASTER_LEVEL, char_OS_Level);
-            setNewState(STATE_FORCE_ELECTION);
+            masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+            setNewState(STATE_I_AM_MASTER);
         }
       }
     } 
