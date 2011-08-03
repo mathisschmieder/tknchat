@@ -350,6 +350,7 @@ packet create_packet(int type, char* data) {
     datalen = sizeof(data);
     //                              TODO: magic 4 data bytes
     strncpy(packet.data, data, sizeof(data)+4);
+    printf("sending data: %d\n", ntohl(atoi(packet.data)));
   } else
     datalen = 0;
   //        Headerformat
@@ -372,7 +373,9 @@ local_packet receive_packet(packet packet) {
 
   printf("received type: %d\n", local_packet.type);
 
-  strncpy(local_packet.data, packet.data, local_packet.datalen);
+  strncpy(local_packet.data, packet.data, sizeof(packet.data));
+
+  printf("received data: %d\n", ntohl(atoi(local_packet.data)));
 
   return local_packet;
 }
