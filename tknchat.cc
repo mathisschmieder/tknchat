@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
   
   send_multicast(SEARCHING_MASTER, NULL);
 
-  send_multicast(DATA_PKT, (char*)"sooo ein grosser penis!");
+  send_multicast(DATA_PKT, (char*)"sooo0 ein grosser penis");
 
   setNewState(STATE_INIT);
 
@@ -293,9 +293,11 @@ int setup_multicast() {
 int send_multicast(int type, char* data) {
   packet packet;
   packet = create_packet(type, data);
-  if ( data != NULL)
+  if ( data != NULL) {
     //                                    +4 (header) + 8 (magic 4 data bytes.. TODO!)
-    return sendto(sd, (char *)&packet, sizeof(data) + 12, 0, (struct sockaddr*)&msock, sizeof(msock));
+    printf("sending strlen: %d\n", (int)strlen(data));
+    return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
+  }
   else
     return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
@@ -351,10 +353,14 @@ packet create_packet(int type, char* data) {
   uint32_t header;
   uint16_t datalen;
 
+  memset(packet.data, 0, strlen(packet.data));
+
   if (data != NULL) { //we dont need neither datalen nor data if there is no data
-    datalen = sizeof(data);
-    //                              TODO: magic 4 data bytes
-    strncpy(packet.data, data, sizeof(data)+8);
+    datalen = strlen(data);
+    printf("packet.data(1) %d\n", strlen(packet.data));
+    strncpy(packet.data, data, datalen);
+    printf("data: %s\n", data);
+    printf("packet.data: %s\n", packet.data);
   } else
     datalen = 0;
   //        Headerformat
@@ -375,6 +381,7 @@ local_packet receive_packet(packet packet) {
   local_packet.seqno = (header >> 16) & 255;
   local_packet.datalen = header & 65535;
 
+  memset(local_packet.data, 0, strlen(local_packet.data));
 #ifdef DEBUG
   printf("received type: %d\n", local_packet.type);
 #endif
