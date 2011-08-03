@@ -65,9 +65,6 @@ int main(int argc, char** argv) {
   init_fdSet(&rfds);
   
   send_multicast(SEARCHING_MASTER, NULL);
-
-  send_multicast(DATA_PKT, (char*)"sooo0 ein grosser penis");
-
   setNewState(STATE_INIT);
 
   globalTimer.tv_sec = 1;
@@ -132,8 +129,10 @@ int main(int argc, char** argv) {
 
       if (FD_ISSET(sd, &rfds)) {
         packet mc_recv;
+        memset(mc_recv.data, 0, strlen(mc_recv.data));
         recv(sd, &mc_recv, sizeof(mc_recv), 0);
         local_packet mc_packet;
+
         mc_packet = receive_packet(mc_recv);
         if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_packet.type == I_AM_MASTER)) {
           pdebug("Master found");
@@ -294,8 +293,7 @@ int send_multicast(int type, char* data) {
   packet packet;
   packet = create_packet(type, data);
   if ( data != NULL) {
-    //                                    +4 (header) + 8 (magic 4 data bytes.. TODO!)
-    printf("sending strlen: %d\n", (int)strlen(data));
+    //                                    +4 (header) 
     return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
   }
   else
@@ -357,10 +355,7 @@ packet create_packet(int type, char* data) {
 
   if (data != NULL) { //we dont need neither datalen nor data if there is no data
     datalen = strlen(data);
-    printf("packet.data(1) %d\n", strlen(packet.data));
     strncpy(packet.data, data, datalen);
-    printf("data: %s\n", data);
-    printf("packet.data: %s\n", packet.data);
   } else
     datalen = 0;
   //        Headerformat
@@ -383,12 +378,11 @@ local_packet receive_packet(packet packet) {
 
   memset(local_packet.data, 0, strlen(local_packet.data));
 #ifdef DEBUG
-  printf("received type: %d\n", local_packet.type);
+  printf("DEBUG received type: %d\n", local_packet.type);
 #endif
 
   if (local_packet.datalen != 0) {
     strncpy(local_packet.data, packet.data, sizeof(packet.data));
-    printf("data: %s\n", packet.data);
   }
 
   return local_packet;
