@@ -108,7 +108,13 @@ int main(int argc, char** argv) {
 
         case STATE_FORCE_ELECTION:
           pdebug("STATE_FORCE_ELECTION");
-
+          send_multicast(FORCE_ELECTION, NULL);
+          char char_OS_Level[sizeof(OS_Level)*8+1];
+          sprintf(char_OS_Level, "%d", htonl(OS_Level));
+          send_multicast(MASTER_LEVEL, char_OS_Level);
+          pdebug("assuming I am master");
+          setNewState(STATE_I_AM_MASTER);
+          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
           break;
 
         case STATE_I_AM_MASTER:
