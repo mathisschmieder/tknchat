@@ -114,7 +114,8 @@ int main(int argc, char** argv) {
             masterdelay--;
           else if (masterdelay == 1) {
             masterdelay = 0; // we now are sure that we are the master
-            send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
+            printf("requesting member info\n");
+          //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
           }
           break;
       }
@@ -148,6 +149,8 @@ int main(int argc, char** argv) {
           send_multicast(MASTER_LEVEL, char_OS_Level);
           masterdelay = 4; // wait 3 cycles until we are sure that we are the master
           setNewState(STATE_I_AM_MASTER);
+        } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SET_MEMBER_INFO)) {
+          printf("got client credentials: %s\n", mc_packet.data);
         } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
           pdebug("Sending MEMBER_INFO");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip->sin_addr));
