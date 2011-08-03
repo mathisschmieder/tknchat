@@ -11,6 +11,8 @@
 
 #include "tknchat.h"
 
+#define DEBUG
+
 int debug = 0;
 
 // argument parse 
@@ -28,10 +30,12 @@ int buflen;
 int OS_Level = 0;
 int retval;
 int masterdelay;
-int maxreq = 5; //todo: this is not the proper place
+int maxreq;
+int seqno;
+packet request;
 
 ClientCredentials MyClientCredentials;
-
+BrowseList MyBrowseList;
 sockaddr_in * getIP(const char*);
 
 
@@ -40,6 +44,10 @@ int main(int argc, char** argv) {
   
   srand( time(NULL) ); //maybe take a better seed
   OS_Level = rand() % 65535 + 1;
+
+  #ifdef DEBUG
+  printf("DEBUG OS_Level %d\n", OS_Level);
+  #endif
 
   if (eth == NULL) 
     eth = "eth0"; 
@@ -51,11 +59,12 @@ int main(int argc, char** argv) {
   else
     strncpy(MyClientCredentials.name, nick, sizeof(MyClientCredentials.name));
 
+  MyBrowseList.head = NULL;
+
   sd = setup_multicast();
   init_fdSet(&rfds);
   
-  mc_packet request;
-  request.type = MC_REQUEST_MEMBERSHIP;
+  request = create_packet(SEARCHING_MASTER, NULL);
   send_multicast(request);
 
   setNewState(STATE_INIT);
@@ -73,37 +82,42 @@ int main(int argc, char** argv) {
       switch(appl_state) {
         
         case STATE_INIT:
+          pdebug("STATE_INIT");
           setNewState(STATE_FORCE_ELECTION);
           break;
         
         case STATE_MASTER_FOUND:
-          if (maxreq > 0) { //this has yet to be set
-            mc_packet request;
-            request.type = MC_GET_BROWSELIST;
+          pdebug("STATE_MASTER_FOUND");
+          if (maxreq > 0) {
+            request = create_packet(GET_BROWSE_LIST, NULL);
             send_multicast(request);
             maxreq--;
           } else {
-            mc_packet request;
-            request.type = MC_FORCE_ELECTION;
+            request = create_packet(FORCE_ELECTION, NULL);
             send_multicast(request);
             setNewState(STATE_FORCE_ELECTION);
           }
           break;
 
         case STATE_BROWSELIST_RCVD:
+          pdebug("STATE_BROWSELIST_RCVD");
           //setup_unicast();
           break;
 
         case STATE_FORCE_ELECTION:
-          mc_packet request;
-          request.type = MC_OS_LEVEL;
-          request.OS_Level = OS_Level;
+          pdebug("STATE_FORCE_ELECTION");
+
+          char char_OS_Level[sizeof(OS_Level)*8+1];
+          sprintf(char_OS_Level, "%d", htonl(OS_Level));
+          request = create_packet(MASTER_LEVEL, char_OS_Level);
           send_multicast(request);
+
           setNewState(STATE_I_AM_MASTER);
           masterdelay = 4; // wait 3 cycles until we are sure that we are the master
           break;
 
         case STATE_I_AM_MASTER:
+          pdebug("STATE_I_AM_MASTER");
           if (masterdelay > 1)
             masterdelay--;
           else if (masterdelay == 1) {
@@ -118,19 +132,26 @@ int main(int argc, char** argv) {
       if (FD_ISSET(sd, &rfds)) {
         mc_packet mc_recv;
         recv(sd, &mc_recv, sizeof(mc_recv), 0);
-        if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_recv.type = MC_I_AM_MASTER)) 
+        if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_recv.type = MC_I_AM_MASTER)) {
+          pdebug("Master found");
+          maxreq = 5; 
           setNewState(STATE_MASTER_FOUND);
-        else if ((appl_state == STATE_I_AM_MASTER) && (mc_recv.type == MC_OS_LEVEL) && (mc_recv.OS_Level > OS_Level))
+        }
+        else if ((appl_state == STATE_I_AM_MASTER) && (mc_recv.type == MC_OS_LEVEL) && (mc_recv.OS_Level > OS_Level)) {
+          pdebug("Master found");
+          maxreq = 5;
           setNewState(STATE_MASTER_FOUND);
+        }
         else if ((appl_state == STATE_I_AM_MASTER) && (mc_recv.type == MC_REQUEST_MEMBERSHIP)) {
+          pdebug("Sending I_AM_MASTER");
           mc_packet response;
           response.type = MC_I_AM_MASTER;
-          send_multicast(response);
+          //send_multicast(response);
         } else if (mc_recv.type == MC_FORCE_ELECTION) {
           mc_packet response;
           response.type = MC_OS_LEVEL;
           response.OS_Level = OS_Level;
-          send_multicast(response);
+          //send_multicast(response);
           setNewState(STATE_FORCE_ELECTION);
         }
 
@@ -269,7 +290,7 @@ int setup_multicast() {
   return sd;
 }
 
-int send_multicast(mc_packet data) {
+int send_multicast(packet data) {
   return sendto(sd, (char *)&data, sizeof(data), 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
@@ -312,19 +333,26 @@ void setGlobalTimer(int sec, int usec) {
     }
 }
 
+packet create_packet(int type, char* data) {
+  seqno++; //increment sequence number by one
+ 
+  #ifdef DEBUG
+  printf("DEBUG creating packet %d\n", seqno);
+  printf("DEBUG packet type: %d\n", type);
+  #endif
 
+  packet packet;
+  packet.version = 0x01;
+  packet.type = type;
+  packet.options = 0;
+  packet.seqno = seqno % 255; // sequence number modulo 255
 
+  if (data != NULL) { //we dont need neither datalen nor data if there is no data
+    packet.datalen = sizeof(data);
+    char databuf[sizeof(data)];
+    strncpy(databuf, data, sizeof(data));
+  } else
+    packet.datalen = 0;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+  return packet;
+}

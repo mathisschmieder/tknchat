@@ -34,6 +34,7 @@
 #define STATE_IDLE            0x07
 #define STATE_BROWSELIST_RCVD 0x08
 
+// deprecated - dont use these
 #define MC_REQUEST_MEMBERSHIP     0x01
 #define MC_FORCE_ELECTION         0x02
 #define MC_OS_LEVEL               0x03
@@ -43,12 +44,35 @@
 #define MC_BROWSELIST             0x07
 #define MC_GET_CLIENTCREDENTIALS  0x08
 
-struct ClientCredentials {
+#define CTRL_PKT            0x01
+#define SEARCHING_MASTER    0x02
+#define MASTER_LEVEL        0x03
+#define I_AM_MASTER         0x04
+#define FORCE_ELECTION      0x05
+#define DATA_PKT            0x06
+#define LEAVE_GROUP         0x07
+#define LEAVE_GROUP_MASTER  0x08
+#define CHECK_MASTER        0x09
+#define GET_MEMBER_INFO     0x10
+#define SET_MEMBER_INFO     0x11
+#define GET_BROWSE_LIST     0x12
+#define BROWSE_LIST         0x13
+
+struct packet {
+  int version;
+  int type;
+  int options;
+  int seqno;
+  int datalen;
+  char data[65536];
+};
+
+struct ClientCredentials { //deprecated - dont use this
 	char name[1024];
 	sockaddr_in * sockaddr;
 };
 
-struct mc_packet {
+struct mc_packet { //deprecated - dont use this;
   int type;
   int OS_Level;
   struct ClientCredentials;
@@ -61,11 +85,13 @@ int sd; // datagram socket
 sockaddr_in * getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
-int send_multicast(mc_packet);
+int send_multicast(packet);
 void parse_options(int, char**);
 void setNewState(int);
 int getState();
 void setGlobalTimer(int, int);
+void pdebug(const char*);
+packet create_packet(int, char*);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
@@ -74,3 +100,12 @@ static struct option long_options[] = {
   { "nick",       1, NULL, 'n' }, 
   { NULL,         0, NULL,  0  } 
 }; 
+
+struct BrowseListItem {
+  ClientCredentials member;
+  BrowseListItem *next;
+};
+
+struct BrowseList {
+  BrowseListItem *head;
+};
