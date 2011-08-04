@@ -96,7 +96,7 @@ struct BrowseList {
 } browselist [MAX_MEMBERS];
 
 struct BrowseListItem {
-  char * ip;
+  char ip[INET_ADDRSTRLEN];
   uint16_t browselistlength;
   uint16_t i;
   uint16_t iplength;

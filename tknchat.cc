@@ -224,6 +224,7 @@ printf("bla");
             test.i = 5;
             test.browselistlength = 16;
             test.iplength = (uint16_t)strlen(inet_ntoa(localip));
+            printf("test\n");
             strncpy(test.ip, inet_ntoa(localip), test.iplength);
 
             send_multicast(BROWSE_LIST, (char*)&test);
