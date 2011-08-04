@@ -109,7 +109,8 @@ int main(int argc, char** argv) {
             pdebug("master found");
             maxreq = 5;
             setNewState(STATE_MASTER_FOUND);
-          }
+          } else
+            set_multicast(SEARCHING_MASTER, NULL);
         }
         // e: Timeout
         // a: send_force_election
