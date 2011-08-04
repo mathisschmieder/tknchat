@@ -83,7 +83,11 @@ int main(int argc, char** argv) {
       recv(sd, &mc_recv, sizeof(mc_recv), 0);
 
       mc_packet = receive_packet(mc_recv);
-      printf("mc_packet.type %d\n", mc_packet.type);
+      pdebug("multicast packet received");
+    } else {
+      mc_packet.type = (int)NULL;
+      memset(mc_packet.data, 0, strlen(mc_packet.data));
+      pdebug("no multicast packet received");
     }
 
     // STATE MACHINE
@@ -187,46 +191,48 @@ int main(int argc, char** argv) {
           pdebug("assuming I am master");
           setNewState(STATE_I_AM_MASTER);
           masterdelay = 4; // wait 3 cycles until we are sure that we are the master
-          // TODO: can't send 2 multicast messages in a row, one may get discarded?
-          send_multicast(GET_MEMBER_INFO,NULL);
         }
         break;
 
       case STATE_I_AM_MASTER:
         pdebug("STATE_I_AM_MASTER");
-        if (masterdelay > 1) {
-          masterdelay--;
-          // e: rcvd_master_level
-          // a: am_I_the_Master? No
-          if (mc_packet.type == MASTER_LEVEL) {
-            setNewState(STATE_FORCE_ELECTION);
+        if ( mc_packet.type == (int)NULL ) { //have we received a multicast packet?
+          if (masterdelay > 1)
+            masterdelay--;
+          else if (masterdelay == 1) {
+            masterdelay = 0; // we now are sure that we are the master
+            send_multicast(GET_MEMBER_INFO,NULL); //therefore we ask all clients to send their credentials
+          }       
+        } else {
+          printf("got packet\n");
+            // e: rcvd_master_level greater than mine
+            // a: am_I_the_Master? No
+          if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
+            printf("oh noes\n");
+            setNewState(STATE_MASTER_FOUND);
+            break;
           }
-          break;
-        }
-        // TODO: obsolete?
-        else if (masterdelay == 1) {
-          masterdelay = 0; // we now are sure that we are the master
-        }
 
-        // e: rcvd_get_browselist
-        // a: send_browselist
-        if (mc_packet.type == BROWSE_LIST) {
-          send_multicast(BROWSE_LIST, NULL);
-        } 
+          // e: rcvd_get_browselist
+          // a: send_browselist
+          else if (mc_packet.type == GET_BROWSE_LIST) {
+            send_multicast(BROWSE_LIST, NULL);
+          } 
 
-        // e: rcvd_set_member_info
-        // a: manage_member_list
-        if (mc_packet.type == SET_MEMBER_INFO) {
-          // TODO: manage_member_list
-          //  pdebug("requesting member info");
-          //  browselistlength = 0;
-          //  addToBrowseList(inet_ntoa(localip), browselistlength);
-          //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
-        } 
-        // e: rcvd_searching_master
-        // a: send_I_am_Master
-        else if ( mc_packet.type == SEARCHING_MASTER ) {
-          send_multicast(I_AM_MASTER, NULL);
+          // e: rcvd_set_member_info
+          // a: manage_member_list
+          else if (mc_packet.type == SET_MEMBER_INFO) {
+            // TODO: manage_member_list
+            //  pdebug("requesting member info");
+            //  browselistlength = 0;
+            //  addToBrowseList(inet_ntoa(localip), browselistlength);
+            //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
+          } 
+          // e: rcvd_searching_master
+          // a: send_I_am_Master
+          else if ( mc_packet.type == SEARCHING_MASTER ) {
+            send_multicast(I_AM_MASTER, NULL);
+          }
         }
         break;
     }
