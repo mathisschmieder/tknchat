@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
         // a: Am_I_the_Master? No
         if ((mc_packet.type == I_AM_MASTER) || 
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
-          pdebug("oh nooooeeees");
+          maxreq = 5;
           setNewState(STATE_MASTER_FOUND);
           break;
         }
@@ -203,7 +203,6 @@ int main(int argc, char** argv) {
             // e: rcvd_master_level greater than mine
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
-            pdebug("oh noes :(");
             maxreq = 5;
             setNewState(STATE_MASTER_FOUND);
             break;
