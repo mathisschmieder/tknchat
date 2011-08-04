@@ -171,7 +171,8 @@ int main(int argc, char** argv) {
         pdebug("STATE_FORCE_ELECTION");
         // e: rcvd_master_level
         // a: Am_I_the_Master? No
-        if (mc_packet.type == I_AM_MASTER) {
+        if ((mc_packet.type == I_AM_MASTER) || 
+            ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
           setNewState(STATE_MASTER_FOUND);
           break;
         }
