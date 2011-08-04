@@ -150,7 +150,8 @@ int main(int argc, char** argv) {
         if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
 
-          printf("test: %s\n", (char*)&mc_packet.data[32]);
+          printf("length: %d\n", strlen(mc_packet.data));
+          printf("test: %s\n", &mc_packet.data[16]);
 
           setNewState(STATE_BROWSELIST_RCVD);
         } else {
@@ -446,7 +447,7 @@ int send_multicast(int type, char* data) {
   packet = create_packet(type, data);
   if ( data != NULL) {
     //                                    +4 (header) 
-    return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
+    return sendto(sd, (char *)&packet, 48 + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
   }
   else
     return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
