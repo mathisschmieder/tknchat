@@ -109,6 +109,9 @@ int main(int argc, char** argv) {
             pdebug("master found");
             maxreq = 5;
             setNewState(STATE_MASTER_FOUND);
+          } else if (mc_packet.type == FORCE_ELECTION) {
+            setNewState(STATE_FORCE_ELECTION);
+            break;
           } else
             send_multicast(SEARCHING_MASTER, NULL);
         }
@@ -175,6 +178,7 @@ int main(int argc, char** argv) {
         // e: rcvd_master_level 
         // a: Am_I_the_Master? Yes
         if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
+          pdebug("I AM MASToR RIGHT?");
           setNewState(STATE_I_AM_MASTER);
         }
        
@@ -204,6 +208,7 @@ int main(int argc, char** argv) {
             // e: rcvd_master_level greater than mine
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
+            pdebug("oh noes :(");
             setNewState(STATE_MASTER_FOUND);
             break;
           }
