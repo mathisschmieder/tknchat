@@ -36,6 +36,21 @@ in_addr localip;
 
 int main(int argc, char** argv) {
   parse_options(argc, argv);
+
+  char test[48];
+  int foo = 16;
+  int bar = 32;
+  char dronf[16];
+  strncpy(dronf, "192.168.212.123", 16);
+  sprintf(&test[0], "%d", foo);
+  printf("length: %d\n", strlen(test));
+  sprintf(&test[16], "%d", bar);
+  printf("length: %d\n", strlen(test));
+  strncpy(&test[32], dronf, 16);
+
+  printf("test: %s\n", (char*)&test[0]);
+
+
   
   srand( time(NULL) ); //maybe take a better seed
   OS_Level = rand() % 65535 + 1;
@@ -134,11 +149,8 @@ int main(int argc, char** argv) {
         // a: establishConn
         if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
-printf("bla");
-          BrowseListItem client;
-          strncpy((char*)&client, mc_packet.data, strlen(mc_packet.data)); //copy received data into BrowseListItem struct
 
-          printf("DEBUG: received browse list item %d\n", client.browselistlength);
+          printf("test: %s\n", (char*)&mc_packet.data[32]);
 
           setNewState(STATE_BROWSELIST_RCVD);
         } else {
@@ -220,12 +232,16 @@ printf("bla");
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
 
-            BrowseListItem test;
-            test.i = 5;
-            test.browselistlength = 16;
-            test.iplength = (uint16_t)strlen(inet_ntoa(localip));
-            printf("test\n");
-            strncpy(test.ip, inet_ntoa(localip), test.iplength);
+           char test[48];
+           int foo = 16;
+           int bar = 32;
+           char dronf[16];
+           strncpy(dronf, inet_ntoa(localip), 16);
+           sprintf(&test[0], "%d", foo);
+           sprintf(&test[16], "%d", bar);
+           strncpy(&test[32], dronf, 16);
+          
+           printf("test: %s\n", (char*)&test[32]);
 
             send_multicast(BROWSE_LIST, (char*)&test);
           } 
@@ -548,6 +564,7 @@ void addToBrowseList(char* clientip, int i) {
 }
 
 void reset_browselist() {
+  //TODO: segfault. brrr!
   for (int i = 0; i < MAX_MEMBERS - 1; i++) {
     memset(browselist[i].name, 0, strlen(browselist[i].name));
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
