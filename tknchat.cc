@@ -13,8 +13,6 @@
 
 #define DEBUG
 
-int debug = 0;
-
 // argument parse 
 int option_index = 0;
 const char* eth = NULL; 
@@ -22,7 +20,7 @@ const char* nick = NULL;
 
 fd_set rfds;
 
-int appl_state;
+int appl_state = STATE_NULL;;
 struct timeval globalTimer;
 
 char buf[MAX_MSG_LEN];
@@ -57,119 +55,172 @@ int main(int argc, char** argv) {
   sd = setup_multicast();
   init_fdSet(&rfds);
   
-  send_multicast(SEARCHING_MASTER, NULL);
-  setNewState(STATE_INIT);
-
   globalTimer.tv_sec = 1;
   globalTimer.tv_usec = 0;
+
+  maxreq = 5;
+
+  #ifdef IAMMASTER
+    send_multicast(I_AM_MASTER, NULL);
+    exit(0);
+  #endif
+
+  #ifdef BROWSELIST
+    send_multicast(BROWSE_LIST, NULL);
+    exit(0);
+  #endif
 
   for (;;) { // main loop
     
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
     assert(retval >= 0);
 
-    if (retval == 0) {
-      // STATE MACHINE
-      switch(appl_state) {
-        
-        case STATE_INIT:
-          pdebug("STATE_INIT");
+    //if (retval == 0) {
+    // STATE MACHINE
+    switch(appl_state) {
+
+      case STATE_NULL:
+        pdebug("STATE_NULL");
+        send_multicast(REQ_MEMBERSHIP, NULL);
+        setNewState(STATE_INIT);
+        break;
+      
+      case STATE_INIT:
+        pdebug("STATE_INIT");
+        if ( maxreq > 0) {
+          maxreq--;
+          if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
+            // TODO: function to receive packet [ i tried and failed ]
+            packet mc_recv;
+            memset(mc_recv.data, 0, strlen(mc_recv.data));
+            recv(sd, &mc_recv, sizeof(mc_recv), 0);
+            local_packet mc_packet;
+
+            mc_packet = receive_packet(mc_recv);
+            if (mc_packet.type == I_AM_MASTER) {
+              maxreq = 5;
+              setNewState(STATE_MASTER_FOUND);
+            }
+          }
+        }
+        else {
           setNewState(STATE_FORCE_ELECTION);
-          break;
-        
-        case STATE_MASTER_FOUND:
-          pdebug("STATE_MASTER_FOUND");
-          if (maxreq > 0) {
-            send_multicast(GET_BROWSE_LIST, NULL);
-            maxreq--;
-          } else {
-            send_multicast(FORCE_ELECTION, NULL);
-            char char_OS_Level[sizeof(OS_Level)*8+1];
-            sprintf(char_OS_Level, "%d", htonl(OS_Level));
-            send_multicast(MASTER_LEVEL, char_OS_Level);
-            pdebug("assuming I am master");
-            setNewState(STATE_I_AM_MASTER);
-            masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+        }
+
+        break;
+      
+      case STATE_MASTER_FOUND:
+        pdebug("STATE_MASTER_FOUND");
+        if (maxreq > 0) {
+          maxreq--;
+          send_multicast(GET_BROWSE_LIST, NULL);
+
+          if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
+            // TODO: function to receive packet [ i tried and failed ]
+            packet mc_recv;
+            memset(mc_recv.data, 0, strlen(mc_recv.data));
+            recv(sd, &mc_recv, sizeof(mc_recv), 0);
+            local_packet mc_packet;
+
+            mc_packet = receive_packet(mc_recv);
+            if (mc_packet.type == BROWSE_LIST) {
+              maxreq = 5;
+              setNewState(STATE_BROWSELIST_RCVD);
+            }
           }
-          break;
 
-        case STATE_BROWSELIST_RCVD:
-          pdebug("STATE_BROWSELIST_RCVD");
-          //setup_unicast();
-          break;
-
-        case STATE_FORCE_ELECTION:
-          pdebug("STATE_FORCE_ELECTION");
-          send_multicast(FORCE_ELECTION, NULL);
-          char char_OS_Level[sizeof(OS_Level)*8+1];
-          sprintf(char_OS_Level, "%d", htonl(OS_Level));
-          send_multicast(MASTER_LEVEL, char_OS_Level);
-          pdebug("assuming I am master");
-          setNewState(STATE_I_AM_MASTER);
-          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
-          break;
-
-        case STATE_I_AM_MASTER:
-          pdebug("STATE_I_AM_MASTER");
-          if (masterdelay > 1)
-            masterdelay--;
-          else if (masterdelay == 1) {
-            masterdelay = 0; // we now are sure that we are the master
-            pdebug("requesting member info");
-            browselistlength = 0;
-            addToBrowseList(inet_ntoa(localip), browselistlength);
-            send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
-          }
-          break;
-      }
-    } else {
-
-      if (FD_ISSET(sd, &rfds)) {
-        packet mc_recv;
-        memset(mc_recv.data, 0, strlen(mc_recv.data));
-        recv(sd, &mc_recv, sizeof(mc_recv), 0);
-        local_packet mc_packet;
-
-        mc_packet = receive_packet(mc_recv);
-        if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_packet.type == I_AM_MASTER)) {
-          pdebug("Master found");
-          maxreq = 5; 
-          setNewState(STATE_MASTER_FOUND);
+        } else {
+          setNewState(STATE_FORCE_ELECTION);
         }
-        else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == MASTER_LEVEL) 
-            && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
-          pdebug("Master found");
-          maxreq = 5;
-          setNewState(STATE_MASTER_FOUND);
+        break;
+
+      case STATE_BROWSELIST_RCVD:
+        pdebug("STATE_BROWSELIST_RCVD");
+        // TODO: nice way of handling master dropouts
+        // Trying to periodically refresh browselist 
+        // and see if master is still there
+        if (maxreq > 0) {
+          maxreq--;
         }
-        else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SEARCHING_MASTER)) {
-          pdebug("Sending I_AM_MASTER");
-          send_multicast(I_AM_MASTER, NULL);
-          send_multicast(GET_MEMBER_INFO, NULL);
-        } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == GET_BROWSE_LIST)) {
-          pdebug("Sending BrowseList");
-          send_multicast(BROWSE_LIST, NULL); //TODO: send actual browse list
-        } else if (mc_packet.type == FORCE_ELECTION) {
-          char char_OS_Level[sizeof(OS_Level)*8+1];
-          sprintf(char_OS_Level, "%d", htonl(OS_Level));
-          send_multicast(MASTER_LEVEL, char_OS_Level);
-          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
-          setNewState(STATE_I_AM_MASTER);
-        } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SET_MEMBER_INFO)) {
-          printf("got client credentials: %s\n", mc_packet.data);
-          addToBrowseList(mc_packet.data, browselistlength);
-        } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
-          pdebug("Sending MEMBER_INFO");
-          send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
-        } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == BROWSE_LIST)) {
-          setNewState(STATE_BROWSELIST_RCVD);
-        }
-      }
-    } 
+        //setup_unicast();
+        break;
+
+      case STATE_FORCE_ELECTION:
+        pdebug("STATE_FORCE_ELECTION");
+        //send_multicast(FORCE_ELECTION, NULL);
+        //char char_OS_Level[sizeof(OS_Level)*8+1];
+        //sprintf(char_OS_Level, "%d", htonl(OS_Level));
+        //send_multicast(MASTER_LEVEL, char_OS_Level);
+        //pdebug("assuming I am master");
+        //setNewState(STATE_I_AM_MASTER);
+        //masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+        break;
+
+      case STATE_I_AM_MASTER:
+        pdebug("STATE_I_AM_MASTER");
+        //if (masterdelay > 1)
+        //  masterdelay--;
+        //else if (masterdelay == 1) {
+        //  masterdelay = 0; // we now are sure that we are the master
+        //  pdebug("requesting member info");
+        //  browselistlength = 0;
+        //  addToBrowseList(inet_ntoa(localip), browselistlength);
+        //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
+        //}
+        break;
+    }
+    pdebug("init fdset");
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
   }
 
+   // else {
+
+   //   if (FD_ISSET(sd, &rfds)) {
+   //     packet mc_recv;
+   //     memset(mc_recv.data, 0, strlen(mc_recv.data));
+   //     recv(sd, &mc_recv, sizeof(mc_recv), 0);
+   //     local_packet mc_packet;
+
+   //     mc_packet = receive_packet(mc_recv);
+   //     if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_packet.type == I_AM_MASTER)) {
+   //       pdebug("Master found");
+   //       maxreq = 5; 
+   //       setNewState(STATE_MASTER_FOUND);
+   //     }
+   //     else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == MASTER_LEVEL) 
+   //         && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
+   //       pdebug("Master found");
+   //       maxreq = 5;
+   //       setNewState(STATE_MASTER_FOUND);
+   //     }
+   //     else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == REQ_MEMBERSHIP)) {
+   //       pdebug("Sending I_AM_MASTER");
+   //       send_multicast(I_AM_MASTER, NULL);
+   //       send_multicast(GET_MEMBER_INFO, NULL);
+   //     } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == GET_BROWSE_LIST)) {
+   //       pdebug("Sending BrowseList");
+   //       send_multicast(BROWSE_LIST, NULL); //TODO: send actual browse list
+   //     } else if (mc_packet.type == FORCE_ELECTION) {
+   //       char char_OS_Level[sizeof(OS_Level)*8+1];
+   //       sprintf(char_OS_Level, "%d", htonl(OS_Level));
+   //       send_multicast(MASTER_LEVEL, char_OS_Level);
+   //       masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+   //       setNewState(STATE_I_AM_MASTER);
+   //     } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SET_MEMBER_INFO)) {
+   //       printf("got client credentials: %s\n", mc_packet.data);
+   //       addToBrowseList(mc_packet.data, browselistlength);
+   //     } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
+   //       pdebug("Sending MEMBER_INFO");
+   //       send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
+   //     } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == BROWSE_LIST)) {
+   //       // new
+   //       pdebug("received updated browselist");
+   //       maxreq = 5;
+   //       setNewState(STATE_BROWSELIST_RCVD);
+   //     }
+   //   }
+   // } 
 
   close(sd);
   return 0;
