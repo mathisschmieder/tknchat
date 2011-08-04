@@ -26,6 +26,7 @@
 #define MASTER_REFRESH_INTERVAL   60  // 60 sec. master refresh interval
 #define MAX_MEMBERS               32
 
+#define STATE_NULL            0x00
 #define STATE_INIT            0x01
 #define STATE_FORCE_ELECTION  0x02
 #define STATE_NO_MASTER       0x03
@@ -36,7 +37,7 @@
 #define STATE_BROWSELIST_RCVD 0x08
 
 #define CTRL_PKT            0x01
-#define SEARCHING_MASTER    0x02
+#define REQ_MEMBERSHIP      0x02
 #define MASTER_LEVEL        0x03
 #define I_AM_MASTER         0x04
 #define FORCE_ELECTION      0x05

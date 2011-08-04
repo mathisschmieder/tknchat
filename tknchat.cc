@@ -70,17 +70,28 @@ int main(int argc, char** argv) {
     exit(0);
   #endif
 
+  local_packet mc_packet;
   for (;;) { // main loop
     
+    // READ FROM SOCKETS 
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
     assert(retval >= 0);
 
-    //if (retval == 0) {
+    if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
+      packet mc_recv;
+      memset(mc_recv.data, 0, strlen(mc_recv.data));
+      recv(sd, &mc_recv, sizeof(mc_recv), 0);
+
+      mc_packet = receive_packet(mc_recv);
+      printf("mc_packet.type %d\n", mc_packet.type);
+    }
+
     // STATE MACHINE
     switch(appl_state) {
 
       case STATE_NULL:
         pdebug("STATE_NULL");
+        // a: send_req_membership
         send_multicast(REQ_MEMBERSHIP, NULL);
         setNewState(STATE_INIT);
         break;
@@ -89,21 +100,18 @@ int main(int argc, char** argv) {
         pdebug("STATE_INIT");
         if ( maxreq > 0) {
           maxreq--;
-          if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
-            // TODO: function to receive packet [ i tried and failed ]
-            packet mc_recv;
-            memset(mc_recv.data, 0, strlen(mc_recv.data));
-            recv(sd, &mc_recv, sizeof(mc_recv), 0);
-            local_packet mc_packet;
-
-            mc_packet = receive_packet(mc_recv);
-            if (mc_packet.type == I_AM_MASTER) {
-              maxreq = 5;
-              setNewState(STATE_MASTER_FOUND);
-            }
+          // e: rcvd_I_am_Master
+          // a: send_get_browse_list
+          if (mc_packet.type == I_AM_MASTER) {
+            maxreq = 5;
+            send_multicast(GET_BROWSE_LIST, NULL);
+            setNewState(STATE_MASTER_FOUND);
           }
         }
+        // e: Timeout
+        // a: send_force_election
         else {
+          send_multicast(FORCE_ELECTION, NULL);
           setNewState(STATE_FORCE_ELECTION);
         }
 
@@ -111,25 +119,26 @@ int main(int argc, char** argv) {
       
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
+        // e: Timeout && #req < MAXREQ 
+        // a: send_get_browse_list
         if (maxreq > 0) {
           maxreq--;
           send_multicast(GET_BROWSE_LIST, NULL);
 
-          if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
-            // TODO: function to receive packet [ i tried and failed ]
-            packet mc_recv;
-            memset(mc_recv.data, 0, strlen(mc_recv.data));
-            recv(sd, &mc_recv, sizeof(mc_recv), 0);
-            local_packet mc_packet;
-
-            mc_packet = receive_packet(mc_recv);
-            if (mc_packet.type == BROWSE_LIST) {
-              maxreq = 5;
-              setNewState(STATE_BROWSELIST_RCVD);
-            }
+          // e: rcvd_browse_list 
+          // a: manage_member_list 
+          // a: establishConn
+          if (mc_packet.type == BROWSE_LIST) {
+            maxreq = 5;
+            // TODO: manage_member_list
+            // TODO: establishConn
+            setNewState(STATE_BROWSELIST_RCVD);
           }
-
+          // e: Timeout && #req > MAXREQ 
+          // a: send_force_election
         } else {
+          maxreq = 5;
+          send_multicast(FORCE_ELECTION, NULL);
           setNewState(STATE_FORCE_ELECTION);
         }
         break;
@@ -139,21 +148,48 @@ int main(int argc, char** argv) {
         // TODO: nice way of handling master dropouts
         // Trying to periodically refresh browselist 
         // and see if master is still there
-        if (maxreq > 0) {
-          maxreq--;
+        // TODO:
+        // setup_unicast();
+
+        // e: rcvd_browse_list
+        // e: rcvd_leaved
+        // a: manage_member_list
+        if ((mc_packet.type == FORCE_ELECTION) || (mc_packet.type == LEAVE_GROUP)) {
+          send_multicast(FORCE_ELECTION, NULL);
+          setNewState(STATE_FORCE_ELECTION);
+          // TODO: manage_member_list
         }
-        //setup_unicast();
         break;
 
       case STATE_FORCE_ELECTION:
         pdebug("STATE_FORCE_ELECTION");
-        //send_multicast(FORCE_ELECTION, NULL);
-        //char char_OS_Level[sizeof(OS_Level)*8+1];
-        //sprintf(char_OS_Level, "%d", htonl(OS_Level));
-        //send_multicast(MASTER_LEVEL, char_OS_Level);
-        //pdebug("assuming I am master");
-        //setNewState(STATE_I_AM_MASTER);
-        //masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+        // e: rcvd_master_level
+        // a: Am_I_the_Master? No
+        if (mc_packet.type == I_AM_MASTER) {
+          setNewState(STATE_MASTER_FOUND);
+          break;
+        }
+        // e: rcvd_master_level 
+        // a: Am_I_the_Master? Yes
+        if (maxreq > 0) {
+          maxreq--;
+          if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
+            setNewState(STATE_I_AM_MASTER);
+          }
+        }
+        // e: Timeout 
+        // a: send_I_am_Master 
+        // a: send_get_member_info
+        else {
+          char char_OS_Level[sizeof(OS_Level)*8+1];
+          sprintf(char_OS_Level, "%d", htonl(OS_Level));
+          send_multicast(MASTER_LEVEL, char_OS_Level);
+          pdebug("assuming I am master");
+          setNewState(STATE_I_AM_MASTER);
+          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+          // TODO: can't send 2 multicast messages in a row, one may get discarded?
+          send_multicast(GET_MEMBER_INFO,NULL);
+        }
         break;
 
       case STATE_I_AM_MASTER:
@@ -293,7 +329,6 @@ in_addr getIP(const char* eth) {
 }
 
 int init_fdSet(fd_set* fds) {
-
   // initialize fds structure
   FD_ZERO(fds);
 
@@ -302,7 +337,6 @@ int init_fdSet(fd_set* fds) {
 
   // add multicast filedescriptor
   FD_SET(sd, fds);
-
 }
 
 int setup_multicast() {
@@ -370,33 +404,40 @@ int getState() {
 }
 
 void setGlobalTimer(int sec, int usec) {
-  static int i_sec;
-  static int i_usec;
-
-  if ((globalTimer.tv_sec == -1) && (globalTimer.tv_usec == -1))
-    {
-      printf("1\n");
-      globalTimer.tv_sec  = i_sec;
-      globalTimer.tv_usec = i_usec;
-      return;
-    }
-
-  i_sec  = sec;
-  i_usec = usec;
-
-  if (sec <= globalTimer.tv_sec)
-    if (usec <= globalTimer.tv_usec)
-       printf("2\n");
-  {
-	globalTimer.tv_sec  = sec;
-	globalTimer.tv_usec = usec;
-      }
-
-  if ((globalTimer.tv_sec == 0) && (globalTimer.tv_usec == 0))
-    {      printf("3\n");
-      globalTimer.tv_sec  = sec;
-      globalTimer.tv_usec = usec;
-    }
+  #ifdef DEBUG
+    printf("sec: %d, usec: %d\n", sec, usec);
+  #endif
+  globalTimer.tv_sec  = sec;
+  globalTimer.tv_usec = usec;
+  
+// TODO: WTF
+//  static int i_sec;
+//  static int i_usec;
+//  if ((globalTimer.tv_sec == -1) && (globalTimer.tv_usec == -1))
+//    {
+//      printf("1\n");
+//      globalTimer.tv_sec  = i_sec;
+//      globalTimer.tv_usec = i_usec;
+//      return;
+//    }
+//
+//  i_sec  = sec;
+//  i_usec = usec;
+//
+// TODO: DELUXE BRACKET WTF
+//  if (sec <= globalTimer.tv_sec)
+//    if (usec <= globalTimer.tv_usec)
+//       printf("2\n");
+//  {
+//	globalTimer.tv_sec  = sec;
+//	globalTimer.tv_usec = usec;
+//      }
+//
+//  if ((globalTimer.tv_sec == 0) && (globalTimer.tv_usec == 0)) {
+//    printf("3\n");
+//    globalTimer.tv_sec  = sec;
+//    globalTimer.tv_usec = usec;
+//   }
 }
 
 packet create_packet(int type, char* data) {
