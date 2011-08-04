@@ -80,6 +80,7 @@ void pdebug(const char*);
 packet create_packet(int, char*);
 local_packet receive_packet(packet);
 void addToBrowseList(char*, int);
+void reset_browselist();
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 

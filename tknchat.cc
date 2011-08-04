@@ -126,14 +126,20 @@ int main(int argc, char** argv) {
       
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
- 
+
+        reset_browselist(); //reset browse list
+
         // e: rcvd_browse_list 
         // a: manage_member_list 
         // a: establishConn
         if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
-          // TODO: manage_member_list
-          // TODO: establishConn
+
+          BrowseListItem client;
+          strncpy((char*)&client, mc_packet.data, strlen(mc_packet.data)); //copy received data into BrowseListItem struct
+
+          printf("DEBUG: received browse list item %d\n", client.i);
+
           setNewState(STATE_BROWSELIST_RCVD);
         } else {
           // e: Timeout && #req < MAXREQ 
@@ -173,6 +179,7 @@ int main(int argc, char** argv) {
         // a: Am_I_the_Master? No
         if ((mc_packet.type == I_AM_MASTER) || 
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
+          //TODO: better handling of waiting time until the new master is ready
           maxreq = 5;
           setNewState(STATE_MASTER_FOUND);
           break;
@@ -204,6 +211,7 @@ int main(int argc, char** argv) {
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
+           //TODO: better handling of waiting time until the new master is ready 
             setNewState(STATE_MASTER_FOUND);
             break;
           }
@@ -211,7 +219,11 @@ int main(int argc, char** argv) {
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
-            send_multicast(BROWSE_LIST, NULL);
+
+            BrowseListItem test;
+            test.i = 5;
+
+            send_multicast(BROWSE_LIST, (char*)&test);
           } 
 
           // e: rcvd_set_member_info
@@ -529,4 +541,12 @@ void addToBrowseList(char* clientip, int i) {
   printf("ip: %s\n", browselist[i].ip);
   printf("host: %s\n", browselist[i].name);
 #endif
+}
+
+void reset_browselist() {
+  for (int i = 0; i < MAX_MEMBERS - 1; i++) {
+    memset(browselist[i].name, 0, strlen(browselist[i].name));
+    memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
+  }
+  browselistlength = 0;
 }
