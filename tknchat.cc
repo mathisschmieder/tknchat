@@ -173,14 +173,15 @@ int main(int argc, char** argv) {
           setNewState(STATE_MASTER_FOUND);
           break;
         }
+        // WHY THE FUCK WOULD WE NEED THIS HERE?
         // e: rcvd_master_level 
         // a: Am_I_the_Master? Yes
-        if (maxreq > 0) {
-          maxreq--;
-          if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
-            setNewState(STATE_I_AM_MASTER);
-          }
-        }
+        //if (maxreq > 0) {
+        //  maxreq--;
+        //  if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
+        //    setNewState(STATE_I_AM_MASTER);
+        //  }
+        //}
         // e: Timeout 
         // a: send_I_am_Master 
         // a: send_get_member_info
@@ -204,7 +205,6 @@ int main(int argc, char** argv) {
             send_multicast(GET_MEMBER_INFO,NULL); //therefore we ask all clients to send their credentials
           }       
         } else {
-          printf("got packet\n");
             // e: rcvd_master_level greater than mine
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
