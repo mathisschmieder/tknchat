@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
             maxreq = 5;
             setNewState(STATE_MASTER_FOUND);
           } else
-            set_multicast(SEARCHING_MASTER, NULL);
+            send_multicast(SEARCHING_MASTER, NULL);
         }
         // e: Timeout
         // a: send_force_election
