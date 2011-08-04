@@ -158,9 +158,7 @@ int main(int argc, char** argv) {
         // e: rcvd_browse_list
         // e: rcvd_leaved
         // a: manage_member_list
-        if ((mc_packet.type == FORCE_ELECTION) || (mc_packet.type == LEAVE_GROUP)) {
-          send_multicast(FORCE_ELECTION, NULL);
-          setNewState(STATE_FORCE_ELECTION);
+        if ((mc_packet.type == BROWSE_LIST) || (mc_packet.type == LEAVE_GROUP)) {
           // TODO: manage_member_list
         }
         break;
@@ -173,15 +171,12 @@ int main(int argc, char** argv) {
           setNewState(STATE_MASTER_FOUND);
           break;
         }
-        // WHY THE FUCK WOULD WE NEED THIS HERE?
         // e: rcvd_master_level 
         // a: Am_I_the_Master? Yes
-        //if (maxreq > 0) {
-        //  maxreq--;
-        //  if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
-        //    setNewState(STATE_I_AM_MASTER);
-        //  }
-        //}
+        if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
+          setNewState(STATE_I_AM_MASTER);
+        }
+       
         // e: Timeout 
         // a: send_I_am_Master 
         // a: send_get_member_info
