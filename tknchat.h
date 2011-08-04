@@ -101,4 +101,3 @@ struct BrowseListItem {
   int i;
 };
 
-char packBrowseListItem(BrowseListItem);

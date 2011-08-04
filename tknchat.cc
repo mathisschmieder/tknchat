@@ -225,7 +225,6 @@ int main(int argc, char** argv) {
             test.i = 32;
             printf("test data: %d\n", test.i);
 
-            printf("test: %d\n", packBrowseListItem(test));
             send_multicast(BROWSE_LIST, (char*)&test);
           } 
 
@@ -554,14 +553,3 @@ void reset_browselist() {
   browselistlength = 0;
 }
 
-char packBrowseListItem(BrowseListItem) {
-  char item[48];
-  uint16_t test;
-  test = 32;
-  sprintf((char*)&item, "%d", test);
-
-  printf("data: %d\n", *item);
-  printf("length: %d\n", strlen(item));
-
-  return &item;
-}
