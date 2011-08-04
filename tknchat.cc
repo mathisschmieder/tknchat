@@ -173,6 +173,7 @@ int main(int argc, char** argv) {
         // a: Am_I_the_Master? No
         if ((mc_packet.type == I_AM_MASTER) || 
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
+          pdebug("oh nooooeeees");
           setNewState(STATE_MASTER_FOUND);
           break;
         }
@@ -203,6 +204,7 @@ int main(int argc, char** argv) {
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             pdebug("oh noes :(");
+            maxreq = 5;
             setNewState(STATE_MASTER_FOUND);
             break;
           }
