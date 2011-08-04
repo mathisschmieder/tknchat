@@ -175,14 +175,7 @@ int main(int argc, char** argv) {
           setNewState(STATE_MASTER_FOUND);
           break;
         }
-        // e: rcvd_master_level 
-        // a: Am_I_the_Master? Yes
-        if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) < OS_Level)) {
-          pdebug("I AM MASToR RIGHT?");
-          setNewState(STATE_I_AM_MASTER);
-        }
-       
-        // e: Timeout 
+        // e: Timeout or rcvd_master_level < mine 
         // a: send_I_am_Master 
         // a: send_get_member_info
         else {
