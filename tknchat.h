@@ -38,6 +38,7 @@
 
 #define CTRL_PKT            0x01
 #define REQ_MEMBERSHIP      0x02
+#define SEARCHING_MASTER    0x02
 #define MASTER_LEVEL        0x03
 #define I_AM_MASTER         0x04
 #define FORCE_ELECTION      0x05

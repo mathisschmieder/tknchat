@@ -91,8 +91,8 @@ int main(int argc, char** argv) {
 
       case STATE_NULL:
         pdebug("STATE_NULL");
-        // a: send_req_membership
-        send_multicast(REQ_MEMBERSHIP, NULL);
+        // a: send_SEARCHING_MASTER
+        send_multicast(SEARCHING_MASTER, NULL);
         setNewState(STATE_INIT);
         break;
       
@@ -194,15 +194,40 @@ int main(int argc, char** argv) {
 
       case STATE_I_AM_MASTER:
         pdebug("STATE_I_AM_MASTER");
-        //if (masterdelay > 1)
-        //  masterdelay--;
-        //else if (masterdelay == 1) {
-        //  masterdelay = 0; // we now are sure that we are the master
-        //  pdebug("requesting member info");
-        //  browselistlength = 0;
-        //  addToBrowseList(inet_ntoa(localip), browselistlength);
-        //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
-        //}
+        if (masterdelay > 1) {
+          masterdelay--;
+          // e: rcvd_master_level
+          // a: am_I_the_Master? No
+          if (mc_packet.type == MASTER_LEVEL) {
+            setNewState(STATE_FORCE_ELECTION);
+          }
+          break;
+        }
+        // TODO: obsolete?
+        else if (masterdelay == 1) {
+          masterdelay = 0; // we now are sure that we are the master
+        }
+
+        // e: rcvd_get_browselist
+        // a: send_browselist
+        if (mc_packet.type == BROWSE_LIST) {
+          send_multicast(BROWSE_LIST, NULL);
+        } 
+
+        // e: rcvd_set_member_info
+        // a: manage_member_list
+        if (mc_packet.type == SET_MEMBER_INFO) {
+          // TODO: manage_member_list
+          //  pdebug("requesting member info");
+          //  browselistlength = 0;
+          //  addToBrowseList(inet_ntoa(localip), browselistlength);
+          //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
+        } 
+        // e: rcvd_searching_master
+        // a: send_I_am_Master
+        else if ( mc_packet.type == SEARCHING_MASTER ) {
+          send_multicast(I_AM_MASTER, NULL);
+        }
         break;
     }
     pdebug("init fdset");
@@ -230,7 +255,7 @@ int main(int argc, char** argv) {
    //       maxreq = 5;
    //       setNewState(STATE_MASTER_FOUND);
    //     }
-   //     else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == REQ_MEMBERSHIP)) {
+   //     else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SEARCHING_MASTER)) {
    //       pdebug("Sending I_AM_MASTER");
    //       send_multicast(I_AM_MASTER, NULL);
    //       send_multicast(GET_MEMBER_INFO, NULL);
