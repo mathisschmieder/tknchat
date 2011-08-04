@@ -127,19 +127,18 @@ int main(int argc, char** argv) {
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
 
-        reset_browselist(); //reset browse list
+ //       reset_browselist(); //reset browse list
 
         // e: rcvd_browse_list 
         // a: manage_member_list 
         // a: establishConn
         if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
-
+printf("bla");
           BrowseListItem client;
           strncpy((char*)&client, mc_packet.data, strlen(mc_packet.data)); //copy received data into BrowseListItem struct
 
-          printf("DEBUG: received browse list item %d\n", client.i);
-          printf("test data: %s\n", (char*)&client);
+          printf("DEBUG: received browse list item %d\n", client.browselistlength);
 
           setNewState(STATE_BROWSELIST_RCVD);
         } else {
@@ -222,8 +221,10 @@ int main(int argc, char** argv) {
           else if (mc_packet.type == GET_BROWSE_LIST) {
 
             BrowseListItem test;
-            test.i = 32;
-            printf("test data: %d\n", test.i);
+            test.i = 5;
+            test.browselistlength = 16;
+            test.iplength = (uint16_t)strlen(inet_ntoa(localip));
+            strncpy(test.ip, inet_ntoa(localip), test.iplength);
 
             send_multicast(BROWSE_LIST, (char*)&test);
           } 
