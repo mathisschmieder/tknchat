@@ -138,7 +138,8 @@ int main(int argc, char** argv) {
           BrowseListItem client;
           strncpy((char*)&client, mc_packet.data, strlen(mc_packet.data)); //copy received data into BrowseListItem struct
 
-          printf("DEBUG: received browse list item %d\n", client.i);
+          printf("DEBUG: received browse list item %s\n", client.ip);
+          printf("test data: %s\n", (char*)&client);
 
           setNewState(STATE_BROWSELIST_RCVD);
         } else {
@@ -221,8 +222,9 @@ int main(int argc, char** argv) {
           else if (mc_packet.type == GET_BROWSE_LIST) {
 
             BrowseListItem test;
-            test.i = 5;
+            strncpy(test.ip, "127.000.000.001", INET_ADDRSTRLEN);
 
+            printf("test: %s\n", (char*)&test);
             send_multicast(BROWSE_LIST, (char*)&test);
           } 
 
