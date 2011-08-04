@@ -83,12 +83,9 @@ int main(int argc, char** argv) {
       recv(sd, &mc_recv, sizeof(mc_recv), 0);
 
       mc_packet = receive_packet(mc_recv);
-      pdebug("multicast packet received");
-      printf("sm packet type: %d\n", mc_packet.type);
     } else {
       mc_packet.type = (int)NULL;
       memset(mc_packet.data, 0, strlen(mc_packet.data));
-      pdebug("no multicast packet received");
     }
 
 
@@ -106,15 +103,11 @@ int main(int argc, char** argv) {
         pdebug("STATE_INIT");
         if ( maxreq > 0) {
           maxreq--;
-          printf("maxreq: %d\n", maxreq);
-          printf("I_AM_MASTER type: %d\n", I_AM_MASTER);
-          printf("received type: %d\n", mc_packet.type);
           // e: rcvd_I_am_Master
           // a: send_get_browse_list
           if (mc_packet.type == I_AM_MASTER) {
             pdebug("master found");
             maxreq = 5;
-            send_multicast(GET_BROWSE_LIST, NULL);
             setNewState(STATE_MASTER_FOUND);
           }
         }
@@ -129,27 +122,28 @@ int main(int argc, char** argv) {
       
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
-        // e: Timeout && #req < MAXREQ 
-        // a: send_get_browse_list
-        if (maxreq > 0) {
-          maxreq--;
-          send_multicast(GET_BROWSE_LIST, NULL);
-
-          // e: rcvd_browse_list 
-          // a: manage_member_list 
-          // a: establishConn
-          if (mc_packet.type == BROWSE_LIST) {
-            maxreq = 5;
-            // TODO: manage_member_list
-            // TODO: establishConn
-            setNewState(STATE_BROWSELIST_RCVD);
-          }
-          // e: Timeout && #req > MAXREQ 
-          // a: send_force_election
-        } else {
+ 
+        // e: rcvd_browse_list 
+        // a: manage_member_list 
+        // a: establishConn
+        if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
-          send_multicast(FORCE_ELECTION, NULL);
-          setNewState(STATE_FORCE_ELECTION);
+          // TODO: manage_member_list
+          // TODO: establishConn
+          setNewState(STATE_BROWSELIST_RCVD);
+        } else {
+          // e: Timeout && #req < MAXREQ 
+          // a: send_get_browse_list
+          if (maxreq > 0) {
+            maxreq--;
+            send_multicast(GET_BROWSE_LIST, NULL);
+            // e: Timeout && #req > MAXREQ 
+            // a: send_force_election
+          } else {
+            maxreq = 5;
+            send_multicast(FORCE_ELECTION, NULL);
+            setNewState(STATE_FORCE_ELECTION);
+          }
         }
         break;
 
@@ -206,13 +200,9 @@ int main(int argc, char** argv) {
             send_multicast(GET_MEMBER_INFO,NULL); //therefore we ask all clients to send their credentials
           }       
         } else {
-          pdebug("got packet");
-          printf("packet type: %d\n", mc_packet.type);
-          printf("searching_master_type: %d\n", SEARCHING_MASTER);
             // e: rcvd_master_level greater than mine
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
-            printf("oh noes\n");
             setNewState(STATE_MASTER_FOUND);
             break;
           }
@@ -235,7 +225,6 @@ int main(int argc, char** argv) {
           // e: rcvd_searching_master
           // a: send_I_am_Master
           else if ( mc_packet.type == SEARCHING_MASTER ) {
-            pdebug("granting membership");
             send_multicast(I_AM_MASTER, NULL);
           }
         }
@@ -516,8 +505,6 @@ local_packet receive_packet(packet packet) {
   memset(local_packet.data, 0, strlen(local_packet.data));
 #ifdef DEBUG
   printf("DEBUG received type: %d\n", local_packet.type);
-  if (local_packet.type == MASTER_LEVEL) 
-   printf("current state: %d\n", appl_state);
 #endif
 
   if (local_packet.datalen != 0) {
