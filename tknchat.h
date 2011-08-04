@@ -92,7 +92,7 @@ static struct option long_options[] = {
 
 struct BrowseList {
   char name[1024];
-  char ip[INET_ADDRSTRLEN];
+  char * ip;
 } browselist [MAX_MEMBERS];
 
 struct BrowseListItem {
@@ -100,3 +100,5 @@ struct BrowseListItem {
   int browselistlength;
   int i;
 };
+
+char packBrowseListItem(BrowseListItem);

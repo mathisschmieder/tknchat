@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
           BrowseListItem client;
           strncpy((char*)&client, mc_packet.data, strlen(mc_packet.data)); //copy received data into BrowseListItem struct
 
-          printf("DEBUG: received browse list item %s\n", client.ip);
+          printf("DEBUG: received browse list item %d\n", client.i);
           printf("test data: %s\n", (char*)&client);
 
           setNewState(STATE_BROWSELIST_RCVD);
@@ -222,9 +222,10 @@ int main(int argc, char** argv) {
           else if (mc_packet.type == GET_BROWSE_LIST) {
 
             BrowseListItem test;
-            strncpy(test.ip, "127.000.000.001", INET_ADDRSTRLEN);
+            test.i = 32;
+            printf("test data: %d\n", test.i);
 
-            printf("test: %s\n", (char*)&test);
+            printf("test: %d\n", packBrowseListItem(test));
             send_multicast(BROWSE_LIST, (char*)&test);
           } 
 
@@ -551,4 +552,16 @@ void reset_browselist() {
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
   }
   browselistlength = 0;
+}
+
+char packBrowseListItem(BrowseListItem) {
+  char item[48];
+  uint16_t test;
+  test = 32;
+  sprintf((char*)&item, "%d", test);
+
+  printf("data: %d\n", *item);
+  printf("length: %d\n", strlen(item));
+
+  return &item;
 }
