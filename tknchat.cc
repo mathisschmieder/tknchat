@@ -142,16 +142,14 @@ int main(int argc, char** argv) {
       for (int i = 0; i < MAX_MEMBERS; i++) {
         if (browselist[i].socket != 0) {
           if (FD_ISSET(browselist[i].socket, &rfds)) {
-            char buffer[MAX_MSG_LEN];
-            memset(buffer, 0, MAX_MSG_LEN);
-            recv(browselist[i].socket, &buffer, MAX_MSG_LEN, 0);
-            if ((int)strlen(buffer) > 0) { 
-              //TODO: handle data
-              printf("%s>> %s\n", browselist[i].name, buffer);
-            } else { //client seems to have disconnected and we have received its FIN
-              close(browselist[i].socket);
-              browselist[i].socket = 0;           
-            }
+            local_packet uc_packet;
+            packet uc_recv;
+            memset(uc_recv.data, 0, strlen(uc_recv.data));
+            recv(sd, &uc_recv, sizeof(uc_recv), 0);
+
+            uc_packet = receive_packet(uc_recv);
+            printf("received unicast data: %s\n", uc_packet.data);
+            
           }
         }
       }
