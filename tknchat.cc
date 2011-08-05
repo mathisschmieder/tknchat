@@ -13,31 +13,54 @@
 
 #define DEBUG
 
-// argument parse 
+// Options for argument parsing
 int option_index = 0;
 const char* eth = NULL; 
 const char* nick = NULL; 
 
+// Define our file descriptor set
 fd_set rfds;
 
+// State machine
 int appl_state = STATE_NULL;;
 struct timeval globalTimer;
+int OS_Level = 0;
+int maxreq;
+int masterdelay;
 
+// Communication
+int retval;
 char buf[MAX_MSG_LEN];
 int buflen;
-int OS_Level = 0;
-int retval;
-int masterdelay;
-int maxreq;
 int seqno;
 int browselistlength = 0;
 char host[1024];
 in_addr localip;
 
+// The main method
 int main(int argc, char** argv) {
+  // Parse arguments from the command line
   parse_options(argc, argv);
 
-  srand( time(NULL) ); //maybe take a better seed
+
+  // TODO
+  char test[48];
+  int foo = 1;
+  int bar = 32;
+  char dronf[16];
+  strncpy(dronf, "192.168.212.123", 16);
+  sprintf(&test[0], "%d", foo);
+  printf("length: %d\n", strlen(test));
+  sprintf(&test[16], "%d", bar);
+  printf("length: %d\n", strlen(test));
+  strncpy(&test[32], dronf, 16);
+
+  printf("test: %s\n", (char*)&test[16]);
+
+
+  // TODO
+  // maybe take a better seed
+  srand( time(NULL) ); 
   OS_Level = rand() % 65535 + 1;
 
   #ifdef DEBUG
@@ -68,6 +91,7 @@ int main(int argc, char** argv) {
 
   maxreq = 5;
 
+  // These options produce different binaries for debugging
   #ifdef IAMMASTER
     send_multicast(I_AM_MASTER, NULL);
     exit(0);
@@ -78,13 +102,19 @@ int main(int argc, char** argv) {
     exit(0);
   #endif
 
+  // Multicast packet
   local_packet mc_packet;
   for (;;) { // main loop
     
     // READ FROM SOCKETS 
+    // select monitors the file descriptors in fdset and returns a positive integer if
+    // there is data available
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
+    // Abort execution if select terminated with an error
     assert(retval >= 0);
 
+
+    // Get data from multicast 
     if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
       packet mc_recv;
       memset(mc_recv.data, 0, strlen(mc_recv.data));
@@ -117,7 +147,9 @@ int main(int argc, char** argv) {
             pdebug("master found");
             maxreq = 5;
             setNewState(STATE_MASTER_FOUND);
-          } else if (mc_packet.type == FORCE_ELECTION) {
+          } 
+          // e: rcvd_force_election
+          else if (mc_packet.type == FORCE_ELECTION) {
             setNewState(STATE_FORCE_ELECTION);
             break;
           } else
@@ -134,8 +166,8 @@ int main(int argc, char** argv) {
       
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
-
-        reset_browselist(); //reset browse list
+        // reset browse list
+        reset_browselist(); 
 
         // e: rcvd_browse_list 
         // a: manage_member_list 
@@ -165,17 +197,17 @@ int main(int argc, char** argv) {
 
       case STATE_BROWSELIST_RCVD:
         pdebug("STATE_BROWSELIST_RCVD");
-        // TODO: nice way of handling master dropouts
+        // TODO nice way of handling master dropouts
         // Trying to periodically refresh browselist 
         // and see if master is still there
-        // TODO:
+        // TODO
         // setup_unicast();
 
         // e: rcvd_browse_list
         // e: rcvd_leaved
         // a: manage_member_list
         if ((mc_packet.type == BROWSE_LIST) || (mc_packet.type == LEAVE_GROUP)) {
-          // TODO: manage_member_list
+          // TODO manage_member_list
         }
         break;
 
@@ -185,7 +217,7 @@ int main(int argc, char** argv) {
         // a: Am_I_the_Master? No
         if ((mc_packet.type == I_AM_MASTER) || 
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
-          //TODO: better handling of waiting time until the new master is ready
+          //TODO better handling of waiting time until the new master is ready
           maxreq = 5;
           setNewState(STATE_MASTER_FOUND);
           break;
@@ -194,30 +226,36 @@ int main(int argc, char** argv) {
         // a: send_I_am_Master 
         // a: send_get_member_info
         else {
+          // Create char to hold the OS_LEVEL 
           char char_OS_Level[sizeof(OS_Level)*8+1];
           sprintf(char_OS_Level, "%d", htonl(OS_Level));
+          // And send it via multicast
           send_multicast(MASTER_LEVEL, char_OS_Level);
           pdebug("assuming I am master");
           setNewState(STATE_I_AM_MASTER);
-          masterdelay = 4; // wait 3 cycles until we are sure that we are the master
+          // Wait 3 cycles until we are sure that we are the master
+          masterdelay = 4; 
         }
         break;
 
       case STATE_I_AM_MASTER:
         pdebug("STATE_I_AM_MASTER");
-        if ( mc_packet.type == (int)NULL ) { //have we received a multicast packet?
+        // Have we received a multicast packet?
+        if ( mc_packet.type == (int)NULL ) { 
           if (masterdelay > 1)
             masterdelay--;
           else if (masterdelay == 1) {
-            masterdelay = 0; // we now are sure that we are the master
-            send_multicast(GET_MEMBER_INFO,NULL); //therefore we ask all clients to send their credentials
+            // Now we are the master
+            masterdelay = 0; 
+            // Ask all clients for their credentials
+            send_multicast(GET_MEMBER_INFO,NULL); 
           }       
         } else {
             // e: rcvd_master_level greater than mine
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
-           //TODO: better handling of waiting time until the new master is ready 
+           //TODO better handling of waiting time until the new master is ready 
             setNewState(STATE_MASTER_FOUND);
             break;
           }
@@ -243,7 +281,7 @@ int main(int argc, char** argv) {
           // e: rcvd_set_member_info
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
-            // TODO: manage_member_list
+            // TODO manage_member_list
             //  pdebug("requesting member info");
             //  browselistlength = 0;
             //  addToBrowseList(inet_ntoa(localip), browselistlength);
@@ -257,63 +295,16 @@ int main(int argc, char** argv) {
         }
         break;
     }
-    pdebug("init fdset");
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
   }
-
-   // else {
-
-   //   if (FD_ISSET(sd, &rfds)) {
-   //     packet mc_recv;
-   //     memset(mc_recv.data, 0, strlen(mc_recv.data));
-   //     recv(sd, &mc_recv, sizeof(mc_recv), 0);
-   //     local_packet mc_packet;
-
-   //     mc_packet = receive_packet(mc_recv);
-   //     if ((appl_state == STATE_INIT) || (appl_state == STATE_FORCE_ELECTION) && (mc_packet.type == I_AM_MASTER)) {
-   //       pdebug("Master found");
-   //       maxreq = 5; 
-   //       setNewState(STATE_MASTER_FOUND);
-   //     }
-   //     else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == MASTER_LEVEL) 
-   //         && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
-   //       pdebug("Master found");
-   //       maxreq = 5;
-   //       setNewState(STATE_MASTER_FOUND);
-   //     }
-   //     else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SEARCHING_MASTER)) {
-   //       pdebug("Sending I_AM_MASTER");
-   //       send_multicast(I_AM_MASTER, NULL);
-   //       send_multicast(GET_MEMBER_INFO, NULL);
-   //     } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == GET_BROWSE_LIST)) {
-   //       pdebug("Sending BrowseList");
-   //       send_multicast(BROWSE_LIST, NULL); //TODO: send actual browse list
-   //     } else if (mc_packet.type == FORCE_ELECTION) {
-   //       char char_OS_Level[sizeof(OS_Level)*8+1];
-   //       sprintf(char_OS_Level, "%d", htonl(OS_Level));
-   //       send_multicast(MASTER_LEVEL, char_OS_Level);
-   //       masterdelay = 4; // wait 3 cycles until we are sure that we are the master
-   //       setNewState(STATE_I_AM_MASTER);
-   //     } else if ((appl_state == STATE_I_AM_MASTER) && (mc_packet.type == SET_MEMBER_INFO)) {
-   //       printf("got client credentials: %s\n", mc_packet.data);
-   //       addToBrowseList(mc_packet.data, browselistlength);
-   //     } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == GET_MEMBER_INFO)) {
-   //       pdebug("Sending MEMBER_INFO");
-   //       send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
-   //     } else if ((appl_state == STATE_MASTER_FOUND) && (mc_packet.type == BROWSE_LIST)) {
-   //       // new
-   //       pdebug("received updated browselist");
-   //       maxreq = 5;
-   //       setNewState(STATE_BROWSELIST_RCVD);
-   //     }
-   //   }
-   // } 
 
   close(sd);
   return 0;
 }
 
+// Function to output debug messages
+// when the DEBUG option is set
 void pdebug(const char* message)
 {
   #ifdef DEBUG
@@ -321,12 +312,14 @@ void pdebug(const char* message)
   #endif
 }
 
+// Function to output program version
 void version() 
 {
-  // TODO: git version?
-  printf("tknchat v0.1\n");
+  // TODO git version?
+  printf("tknchat v0.3\n");
 }
 
+// Function for basic help
 void usage()
 {
   printf("usage:\n");
@@ -336,6 +329,7 @@ void usage()
   printf(" -n --nick\t set nickname (default Hostname)\n");
 }
 
+// Function for parsing and handling command line arguments 
 void parse_options(int argc, char** argv) {
   
   pdebug("DEBUG");
@@ -360,8 +354,9 @@ void parse_options(int argc, char** argv) {
       nick = optarg;
       break;               
     }
-
 }
+
+// Function to get own IP adress
 in_addr getIP(const char* eth) {
   struct ifaddrs * ifAddrStruct=NULL;
   struct ifaddrs * ifa=NULL;
@@ -380,17 +375,19 @@ in_addr getIP(const char* eth) {
   return sockaddr->sin_addr;
 }
 
+// Function to initialize the file descriptor set
 int init_fdSet(fd_set* fds) {
-  // initialize fds structure
+  // reset fds
   FD_ZERO(fds);
-
-  // add console filedescriptor
+  // add console 
   FD_SET(0, fds);
-
-  // add multicast filedescriptor
+  // add multicast 
   FD_SET(sd, fds);
+  // TODO
+  // add unicast
 }
 
+// Function to setup multicast communication
 int setup_multicast() {
   int sd;
   struct ip_mreq group;
@@ -435,6 +432,7 @@ int setup_multicast() {
   return sd;
 }
 
+// Function to send a multicast packet
 int send_multicast(int type, char* data) {
   packet packet;
   packet = create_packet(type, data);
@@ -447,14 +445,18 @@ int send_multicast(int type, char* data) {
 }
 
 
+// Function to set a new state on the StateMachine
 void setNewState(int state) {
   appl_state = state;
 }
 
+// Function to return current state
+// TODO: obsolete?
 int getState() {
   return appl_state;
 }
 
+// Function to set the global timer used for select
 void setGlobalTimer(int sec, int usec) {
   #ifdef DEBUG
     printf("sec: %d, usec: %d\n", sec, usec);
@@ -462,7 +464,7 @@ void setGlobalTimer(int sec, int usec) {
   globalTimer.tv_sec  = sec;
   globalTimer.tv_usec = usec;
   
-// TODO: WTF
+// TODO WTF
 //  static int i_sec;
 //  static int i_usec;
 //  if ((globalTimer.tv_sec == -1) && (globalTimer.tv_usec == -1))
@@ -476,7 +478,7 @@ void setGlobalTimer(int sec, int usec) {
 //  i_sec  = sec;
 //  i_usec = usec;
 //
-// TODO: DELUXE BRACKET WTF
+// TODO DELUXE BRACKET WTF
 //  if (sec <= globalTimer.tv_sec)
 //    if (usec <= globalTimer.tv_usec)
 //       printf("2\n");
@@ -541,6 +543,7 @@ local_packet receive_packet(packet packet) {
   return local_packet;
 }
 
+// Function to add a client into the BrowseList
 void addToBrowseList(char* clientip, int i) {
   pdebug("adding item to browse list");
   strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
