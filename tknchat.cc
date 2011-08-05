@@ -149,8 +149,13 @@ int main(int argc, char** argv) {
             recv(browselist[i].socket, &uc_recv, sizeof(uc_recv), 0);
 
             uc_packet = receive_packet(uc_recv);
-            printf("received unicast data: %s\n", uc_packet.data);
-            
+
+            if ((int)strlen(uc_packet.data) > 0) {
+              printf("%s>> %s\n", browselist[i].name, uc_packet.data);
+            } else {
+              close(browselist[i].socket);
+              browselist[i].socket = 0;
+            }
           }
         }
       }
