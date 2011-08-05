@@ -64,7 +64,7 @@ struct local_packet {
   int seqno;
   char data[65536];
 };
-
+/**/
 struct sockaddr_in msock;
 int sd; // datagram socket
 int s; // unicast incoming

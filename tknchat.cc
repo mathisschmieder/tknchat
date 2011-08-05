@@ -26,6 +26,7 @@ int appl_state = STATE_NULL;;
 struct timeval globalTimer;
 int OS_Level = 0;
 int maxreq;
+int alive_req;
 int masterdelay;
 
 // Communication
@@ -142,7 +143,9 @@ int main(int argc, char** argv) {
       for (int i = 0; i < MAX_MEMBERS; i++) {
         if (browselist[i].socket != 0) {
           if (FD_ISSET(browselist[i].socket, &rfds)) {
-            printf("handling data\n");
+            #ifdef DEBUG
+              printf("receiving data\n");
+            #endif
             local_packet uc_packet;
             packet uc_recv;
             memset(uc_recv.data, 0, strlen(uc_recv.data));
@@ -246,16 +249,36 @@ int main(int argc, char** argv) {
         // TODO nice way of handling master dropouts
         // Trying to periodically refresh browselist 
         // and see if master is still there
-        // TODO
-        setup_unicast();
+
+        // TODO respond to master pings
+
+        if (alive_req < 15) {
+          alive_req++;
+        }
+        else {
+          pdebug("master dead!");
+          setNewState(STATE_FORCE_ELECTION);
+        }
+
+        if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen == 0)) {
+          alive_req = 0;
+          pdebug("master alive");
+          send_multicast(CTRL_PKT, inet_ntoa(localip));
+        }
+
+        // TODO URGENT
+        // removed to check dropping master/slaves
+        //setup_unicast();
 
         // e: rcvd_browse_list
         // e: rcvd_leaved
         // a: manage_member_list
         if ((mc_packet.type == BROWSE_LIST) || (mc_packet.type == LEAVE_GROUP)) {
           reset_browselist();
-          setNewState(STATE_MASTER_FOUND);
-          maxreq = 5;
+          // TODO differs from state tree diagram
+          // should stay in this state
+          // setNewState(STATE_MASTER_FOUND);
+          // maxreq = 5;
           receive_BrowseListItem(mc_packet.data);
         }
         break;
@@ -284,6 +307,7 @@ int main(int argc, char** argv) {
           // And send it via multicast
           send_multicast(MASTER_LEVEL, char_OS_Level);
           pdebug("assuming I am master");
+          maxreq = 5;
           setNewState(STATE_I_AM_MASTER);
           // Wait 3 cycles until we are sure that we are the master
           masterdelay = 4; 
@@ -311,33 +335,26 @@ int main(int argc, char** argv) {
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
-           //TODO better handling of waiting time until the new master is ready 
-           reset_browselist();
+            //TODO better handling of waiting time until the new master is ready 
+            reset_browselist();
             setNewState(STATE_MASTER_FOUND);
             break;
           }
-
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
             for (int i = 0; i < browselistlength; i++) {
-#ifdef DEBUG
+            #ifdef DEBUG
               printf("DEBUG sending browselistentry %d\n", i);
-#endif
+            #endif
               send_BrowseListItem(i);
             }
-
-
           } 
-
           // e: rcvd_set_member_info
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
             // manage_member_list
             addToBrowseList(mc_packet.data, browselistlength++);
-           
-            //  not here??
-            //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
           } 
           // e: rcvd_searching_master
           // a: send_I_am_Master
@@ -348,7 +365,35 @@ int main(int argc, char** argv) {
             setNewState(STATE_FORCE_ELECTION);
           }
         }
-        printf("bll: %d\n", browselistlength);
+
+        if (maxreq > 0) {
+          maxreq--;
+          if (alive_req > 1) {
+            if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen > 0)) {
+              alive_req--;
+            }
+          }
+          // All slaves replied
+          else if (alive_req == 1) {
+            alive_req = 0;
+            pdebug("all slaves alive");
+          }
+        }
+        else {
+          if (alive_req > 0) {
+            pdebug("slave dead!");
+            // TODO best way to handle this?
+            alive_req = 0;
+            maxreq = 10;
+            masterdelay = 1;
+          }
+          else {
+            maxreq = 10;
+            alive_req = browselistlength;
+            pdebug("master ping!");
+            send_multicast(CTRL_PKT, NULL);
+          }
+        }
         break;
     }
     init_fdSet(&rfds);
@@ -383,6 +428,7 @@ void usage()
   printf(" -h --help\t print this help\n");
   printf(" -v --version\t show version\n");
   printf(" -i --interface\t set primary interface (default eth0)\n");
+  //TODO remove nickname
   printf(" -n --nick\t set nickname (default Hostname)\n");
 }
 
@@ -528,9 +574,9 @@ int setup_unicast() {
     if ((browselist[i].socket == 0) 
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 )
         && (strncmp(browselist[i].ip, "", INET_ADDRSTRLEN) != 0)) {
-#ifdef DEBUG
-      printf("DEBUG opening connection to %s, i is %d\n", browselist[i].ip, i);
-#endif
+      #ifdef DEBUG
+        printf("DEBUG opening connection to %s, i is %d\n", browselist[i].ip, i);
+      #endif
       newsock = socket(AF_INET, SOCK_STREAM, 0);
       if (newsock < 0) {
         perror("Error opening unicast socket");
@@ -538,6 +584,8 @@ int setup_unicast() {
       }
 
       options.sin_addr.s_addr = inet_addr(browselist[i].ip);
+      // TODO URGENT
+      // is it even possible for several clients to connect on the same port?
       options.sin_port = htons(UC_DATA_PORT);
       options.sin_family = AF_INET;
       if (connect(newsock, (struct sockaddr *)&options, sizeof(options)) < 0) {
@@ -573,8 +621,10 @@ int send_unicast(char* data) {
     if ((browselist[i].socket != 0) //dont send to empty sockets
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
       returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
-      printf("socket: %d\n", browselist[i].socket);
-      printf("sending data: %s\n", data);
+      #ifdef DEBUG
+        printf("socket: %d\n", browselist[i].socket);
+        printf("sending data: %s\n", data);
+      #endif
     }
   }
 
@@ -633,10 +683,10 @@ void setGlobalTimer(int sec, int usec) {
 packet create_packet(int type, char* data) {
   seqno++; //increment sequence number by one
  
-  #ifdef DEBUG
-  printf("DEBUG creating packet with seq no %d\n", seqno);
-  printf("DEBUG creating packet type: %d\n", type);
-  #endif
+  //#ifdef DEBUG
+  //printf("DEBUG creating packet with seq no %d\n", seqno);
+  //printf("DEBUG creating packet type: %d\n", type);
+  //#endif
 
   packet packet;
   uint32_t header;
@@ -682,19 +732,36 @@ local_packet receive_packet(packet packet) {
 // Function to add a client into the BrowseList
 void addToBrowseList(char* clientip, int i) {
   pdebug("adding item to browse list");
-  strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
-  // TODO duplicates
+  int duplicate = 0;
+  // Check if item already exists in browselist
+  // starting with first slave
+  for (int index = 1; index < i; index++) {
+    printf("%s / %s\n", browselist[index].ip, clientip);
+    if (!strcmp(browselist[index].ip,clientip)) {
+      duplicate = 1;
+    }
+  }
+  if (duplicate == 1) {
+    pdebug("item already in browse list, not adding");
+    // check if browselistlength was i before
+    if (i == browselistlength -1) {
+      // and decrement if necessary
+      browselistlength--;
+    }
+  }
+  else {
+    strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
+    hostent* host;
+    in_addr ip;
+    ip.s_addr = inet_addr(clientip);
+    host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
+    strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
 
-  hostent* host;
-  in_addr ip;
-  ip.s_addr = inet_addr(clientip);
-  host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
-  strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
-
-#ifdef DEBUG
-  printf("ip: %s\n", browselist[i].ip);
-  printf("host: %s\n", browselist[i].name);
-#endif
+    #ifdef DEBUG
+      printf("ip: %s\n", browselist[i].ip);
+      printf("host: %s\n", browselist[i].name);
+    #endif
+  }
 }
 
 void reset_browselist() {
