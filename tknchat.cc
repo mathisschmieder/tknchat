@@ -125,6 +125,19 @@ int main(int argc, char** argv) {
           pdebug("closing non-authorized unicast connection");
           close(newsock);
         }
+      } else if (FD_ISSET(0, &rfds)) {
+        // keyboard input
+        char buffer[MAX_MSG_LEN];
+        char * p;
+
+        memset(buffer, 0, MAX_MSG_LEN); //clear buffer
+        fgets(buffer, MAX_MSG_LEN, stdin);     
+        
+        //remove trailing newline character                                       
+        if ((p = strchr(buffer, '\n')) != NULL)
+          *p = '\0';
+
+        send_unicast(buffer);
       }
       for (int i = 0; i < MAX_MEMBERS; i++) {
         if (browselist[i].socket != 0) {
@@ -230,7 +243,7 @@ int main(int argc, char** argv) {
         // Trying to periodically refresh browselist 
         // and see if master is still there
         // TODO
-        // setup_unicast();
+        setup_unicast();
 
         // e: rcvd_browse_list
         // e: rcvd_leaved
@@ -504,6 +517,36 @@ int setup_unicast_listen() {
   return s;
 }
 
+int setup_unicast() {
+  int newsock;
+  struct sockaddr_in options;
+  for (int i = 0; i < MAX_MEMBERS; i++) {
+    if ((browselist[i].socket == 0) 
+        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 )
+        && (strncmp(browselist[i].ip, "", INET_ADDRSTRLEN) != 0)) {
+#ifdef DEBUG
+      printf("DEBUG opening connection to %s, i is %d\n", browselist[i].ip, i);
+#endif
+      newsock = socket(AF_INET, SOCK_STREAM, 0);
+      if (newsock < 0) {
+        perror("Error opening unicast socket");
+        exit(1);
+      }
+
+      options.sin_addr.s_addr = inet_addr(browselist[i].ip);
+      options.sin_port = htons(UC_DATA_PORT);
+      options.sin_family = AF_INET;
+      if (connect(newsock, (struct sockaddr *)&options, sizeof(options)) < 0) {
+        perror("Error connecting to unicast socket");
+        exit(1);
+      }
+
+      browselist[i].socket = newsock;
+    } 
+  }
+  return 0; //TODO
+}
+
 // Function to send a multicast packet
 int send_multicast(int type, char* data) {
   packet packet;
@@ -516,6 +559,23 @@ int send_multicast(int type, char* data) {
     return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
+int send_unicast(char* data) {
+  packet packet;
+  packet = create_packet(DATA_PKT, data);
+  int returnvalue;
+  returnvalue = 0;
+
+  for (int i = 0; i < MAX_MEMBERS; i++) {
+    if ((browselist[i].socket != 0) //dont send to empty sockets
+        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
+      returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
+      printf("socket: %d\n", browselist[i].socket);
+      printf("sending data: %s\n", data);
+    }
+  }
+
+  return returnvalue;
+}
 
 // Function to set a new state on the StateMachine
 void setNewState(int state) {
@@ -688,3 +748,5 @@ int receive_BrowseListItem(char* data) {
 #endif
   return 0;
 }
+
+

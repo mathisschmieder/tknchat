@@ -73,6 +73,7 @@ in_addr getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
 int setup_unicast_listen();
+int setup_unicast();
 int send_multicast(int, char*);
 void parse_options(int, char**);
 void setNewState(int);
@@ -85,6 +86,7 @@ void addToBrowseList(char*, int);
 void reset_browselist();
 int send_BrowseListItem(int);
 int receive_BrowseListItem(char*);
+int send_unicast(char*);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
