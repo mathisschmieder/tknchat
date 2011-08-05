@@ -37,21 +37,6 @@ in_addr localip;
 int main(int argc, char** argv) {
   parse_options(argc, argv);
 
-  char test[48];
-  int foo = 1;
-  int bar = 32;
-  char dronf[16];
-  strncpy(dronf, "192.168.212.123", 16);
-  sprintf(&test[0], "%d", foo);
-  printf("length: %d\n", strlen(test));
-  sprintf(&test[16], "%d", bar);
-  printf("length: %d\n", strlen(test));
-  strncpy(&test[32], dronf, 16);
-
-  printf("test: %s\n", (char*)&test[16]);
-
-
-  
   srand( time(NULL) ); //maybe take a better seed
   OS_Level = rand() % 65535 + 1;
 
@@ -66,6 +51,14 @@ int main(int argc, char** argv) {
     eth = "eth0"; 
 
   localip = getIP(eth);
+
+  reset_browselist();
+  browselistlength=1;
+  addToBrowseList(inet_ntoa(localip), 0);
+  addToBrowseList((char*)"127.0.0.1", 1);
+  browselistlength = 2;
+  for (int i = 0; i < browselistlength; i++)
+    send_BrowseListItem(i);
 
   sd = setup_multicast();
   init_fdSet(&rfds);
@@ -142,7 +135,7 @@ int main(int argc, char** argv) {
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
 
- //       reset_browselist(); //reset browse list
+        reset_browselist(); //reset browse list
 
         // e: rcvd_browse_list 
         // a: manage_member_list 
@@ -565,7 +558,6 @@ void addToBrowseList(char* clientip, int i) {
 }
 
 void reset_browselist() {
-  //TODO: segfault. brrr!
   for (int i = 0; i < MAX_MEMBERS - 1; i++) {
     memset(browselist[i].name, 0, strlen(browselist[i].name));
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
@@ -573,3 +565,47 @@ void reset_browselist() {
   browselistlength = 0;
 }
 
+int send_BrowseListItem(int index) {
+  char data[64];
+  char bllength[16];
+  char blindex[16];
+  char iplength[16];
+  char ip[16];
+  strncpy(ip, browselist[index].ip, 16);
+  sprintf(blindex, "%d", index);
+  sprintf(bllength, "%d", browselistlength);
+  sprintf(iplength, "%d", (int)strlen(ip)); 
+  strncpy(data, bllength, 16);
+  strncat(data, ",", 1);
+  strncat(data, blindex, 16);
+  strncat(data, ",", 1);
+  strncat(data, iplength, 16);
+  strncat(data, ",", 1);
+  strncat(data, ip, 16);
+
+#ifdef DEBUG
+  printf("DEBUG sending browse list item: %s\n", data);
+#endif
+
+  receive_BrowseListItem(data);
+
+  return 0;
+ 
+}
+
+int receive_BrowseListItem(char* data) {
+  char bllength[16];
+  char blindex[16];
+  char iplength[16];
+  char ip[16];
+
+  strncpy(bllength, strtok(data, ","), 16);
+  strncpy(blindex, strtok(NULL, ","), 16);
+  strncpy(iplength, strtok(NULL, ","), 16);
+  strncpy(ip, strtok(NULL, ","), 16);
+
+#ifdef DEBUG
+  printf("DEBUG received index %s of %s with iplength of %s, ip: %s\n", blindex, bllength, iplength, ip);
+#endif
+  return 0;
+}

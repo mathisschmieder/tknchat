@@ -81,6 +81,8 @@ packet create_packet(int, char*);
 local_packet receive_packet(packet);
 void addToBrowseList(char*, int);
 void reset_browselist();
+int send_BrowseListItem(int);
+int receive_BrowseListItem(char*);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
@@ -92,14 +94,7 @@ static struct option long_options[] = {
 
 struct BrowseList {
   char name[1024];
-  char * ip;
+  char ip[INET_ADDRSTRLEN];
 } browselist [MAX_MEMBERS];
 
-struct BrowseListItem {
-  char ip[INET_ADDRSTRLEN];
-  uint16_t browselistlength;
-  uint16_t i;
-  uint16_t iplength;
-
-};
 
