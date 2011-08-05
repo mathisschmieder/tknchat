@@ -181,15 +181,19 @@ int main(int argc, char** argv) {
           setNewState(STATE_BROWSELIST_RCVD);
         } 
         else if (mc_packet.type == GET_MEMBER_INFO) {
-          maxreq = 5;
+          // TODO need better way to wait
+          maxreq = 10;
           pdebug("SENDING MEMBER INFO");
 
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
         else {
+          if (maxreq > 5) {
+            maxreq--;
+          }
           // e: Timeout && #req < MAXREQ 
           // a: send_get_browse_list
-          if (maxreq > 0) {
+          else if (maxreq > 0) {
             maxreq--;
             send_multicast(GET_BROWSE_LIST, NULL);
             // e: Timeout && #req > MAXREQ 
@@ -274,6 +278,7 @@ int main(int argc, char** argv) {
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
+            send_multicast(BROWSE_LIST, NULL);
 
           // TODO
           // char test[48];
