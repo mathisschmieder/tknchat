@@ -1,0 +1,8 @@
+- eigenen entry aus der browselist rausnehmen (client mode)
+- unicast-verbindungen aufbauen
+  - active/passive open, also nur eine verbindung pro client-paar
+- die descriptors irgendwo speichern
+- input/output
+  - kontroll-befehler wie /quit
+- join/part msgs
+- bye-bye-pakete
