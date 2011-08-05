@@ -179,7 +179,12 @@ int main(int argc, char** argv) {
           printf("test: %s\n", &mc_packet.data[0]);
 
           setNewState(STATE_BROWSELIST_RCVD);
-        } else {
+        } 
+        else if (mc_packet.type == GET_MEMBER_INFO) {
+          pdebug("SENDING MEMBER INFO");
+          send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
+        }
+        else {
           // e: Timeout && #req < MAXREQ 
           // a: send_get_browse_list
           if (maxreq > 0) {
@@ -247,6 +252,9 @@ int main(int argc, char** argv) {
           else if (masterdelay == 1) {
             // Now we are the master
             masterdelay = 0; 
+            // Initialize BrowseList
+            reset_browselist();
+            addToBrowseList(inet_ntoa(localip), browselistlength++);
             // Ask all clients for their credentials
             send_multicast(GET_MEMBER_INFO,NULL); 
           }       
@@ -264,36 +272,39 @@ int main(int argc, char** argv) {
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
 
-           char test[48];
-           int foo = 16;
-           int bar = 32;
-           char dronf[16];
-           strncpy(dronf, inet_ntoa(localip), 16);
-           sprintf(&test[0], "%d", foo);
-           sprintf(&test[16], "%d", bar);
-           strncpy(&test[32], dronf, 16);
-          
-           printf("test: %s\n", (char*)&test[32]);
+          // TODO
+          // char test[48];
+          // int foo = 16;
+          // int bar = 32;
+          // char dronf[16];
+          // strncpy(dronf, inet_ntoa(localip), 16);
+          // sprintf(&test[0], "%d", foo);
+          // sprintf(&test[16], "%d", bar);
+          // strncpy(&test[32], dronf, 16);
+          //
+          // printf("test: %s\n", (char*)&test[32]);
 
-            send_multicast(BROWSE_LIST, (char*)&test);
+          //  send_multicast(BROWSE_LIST, (char*)&test);
+
           } 
 
           // e: rcvd_set_member_info
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
-            // TODO manage_member_list
-            //  pdebug("requesting member info");
-            //  browselistlength = 0;
-            //  addToBrowseList(inet_ntoa(localip), browselistlength);
+            // manage_member_list
+            addToBrowseList(mc_packet.data, browselistlength);
+           
+            //  not here??
             //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
           } 
           // e: rcvd_searching_master
           // a: send_I_am_Master
           else if ( mc_packet.type == SEARCHING_MASTER ) {
             send_multicast(I_AM_MASTER, NULL);
-            printf("new client: %s\n", mc_packet.data);
+            addToBrowseList(mc_packet.data, browselistlength++);
           }
         }
+        printf("bll: %d\n", browselistlength);
         break;
     }
     init_fdSet(&rfds);
@@ -548,6 +559,7 @@ local_packet receive_packet(packet packet) {
 void addToBrowseList(char* clientip, int i) {
   pdebug("adding item to browse list");
   strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
+  // TODO duplicates
 
   hostent* host;
   in_addr ip;
