@@ -75,13 +75,13 @@ int main(int argc, char** argv) {
 
   localip = getIP(eth);
 
-  reset_browselist();
-  browselistlength=1;
-  addToBrowseList(inet_ntoa(localip), 0);
-  addToBrowseList((char*)"127.0.0.1", 1);
-  browselistlength = 2;
-  for (int i = 0; i < browselistlength; i++)
-    send_BrowseListItem(i);
+//  reset_browselist();
+//  browselistlength=1;
+//  addToBrowseList(inet_ntoa(localip), 0);
+//  addToBrowseList((char*)"127.0.0.1", 1);
+//  browselistlength = 2;
+//  for (int i = 0; i < browselistlength; i++)
+//    send_BrowseListItem(i);
 
   sd = setup_multicast();
   init_fdSet(&rfds);
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
       case STATE_NULL:
         pdebug("STATE_NULL");
         // a: send_SEARCHING_MASTER
-        send_multicast(SEARCHING_MASTER, NULL);
+        send_multicast(SEARCHING_MASTER, inet_ntoa(localip));
         setNewState(STATE_INIT);
         break;
       
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
             setNewState(STATE_FORCE_ELECTION);
             break;
           } else
-            send_multicast(SEARCHING_MASTER, NULL);
+            send_multicast(SEARCHING_MASTER, inet_ntoa(localip));
         }
         // e: Timeout
         // a: send_force_election
@@ -291,6 +291,7 @@ int main(int argc, char** argv) {
           // a: send_I_am_Master
           else if ( mc_packet.type == SEARCHING_MASTER ) {
             send_multicast(I_AM_MASTER, NULL);
+            printf("new client: %s\n", mc_packet.data);
           }
         }
         break;
