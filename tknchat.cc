@@ -310,6 +310,8 @@ int main(int argc, char** argv) {
           else if ( mc_packet.type == SEARCHING_MASTER ) {
             send_multicast(I_AM_MASTER, NULL);
             addToBrowseList(mc_packet.data, browselistlength++);
+          } else if ( mc_packet.type == FORCE_ELECTION ) {
+            setNewState(STATE_FORCE_ELECTION);
           }
         }
         printf("bll: %d\n", browselistlength);
