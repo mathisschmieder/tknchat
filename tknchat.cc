@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
           // a: send_get_browse_list
           if (mc_packet.type == I_AM_MASTER) {
             pdebug("master found");
-            maxreq = 5;
+            maxreq = 6;
             // reset browse list
             reset_browselist(); 
 
@@ -140,8 +140,10 @@ int main(int argc, char** argv) {
           else if (mc_packet.type == FORCE_ELECTION) {
             setNewState(STATE_FORCE_ELECTION);
             break;
-          } else
+          } 
+          else {
             send_multicast(SEARCHING_MASTER, inet_ntoa(localip));
+          }
         }
         // e: Timeout
         // a: send_force_election
@@ -162,21 +164,20 @@ int main(int argc, char** argv) {
           receive_BrowseListItem(mc_packet.data);
         } 
         else if (mc_packet.type == GET_MEMBER_INFO) {
-          // TODO need better way to wait
-          maxreq = 10;
+          maxreq = 6;
           pdebug("SENDING MEMBER INFO");
-
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
         else {
-          if (maxreq > 5) {
-            maxreq--;
-          }
           // e: Timeout && #req < MAXREQ 
           // a: send_get_browse_list
-          else if (maxreq > 0) {
+          if (maxreq == 6) {
             maxreq--;
             send_multicast(GET_BROWSE_LIST, NULL);
+          }
+          else if (maxreq > 0) {
+            maxreq--;
+
             // e: Timeout && #req > MAXREQ 
             // a: send_force_election
           } else {
