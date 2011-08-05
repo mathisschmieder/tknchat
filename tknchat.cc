@@ -44,21 +44,6 @@ int main(int argc, char** argv) {
 
 
   // TODO
-  char test[48];
-  int foo = 1;
-  int bar = 32;
-  char dronf[16];
-  strncpy(dronf, "192.168.212.123", 16);
-  sprintf(&test[0], "%d", foo);
-  printf("length: %d\n", strlen(test));
-  sprintf(&test[16], "%d", bar);
-  printf("length: %d\n", strlen(test));
-  strncpy(&test[32], dronf, 16);
-
-  printf("test: %s\n", (char*)&test[16]);
-
-
-  // TODO
   // maybe take a better seed
   srand( time(NULL) ); 
   OS_Level = rand() % 65535 + 1;
@@ -146,6 +131,9 @@ int main(int argc, char** argv) {
           if (mc_packet.type == I_AM_MASTER) {
             pdebug("master found");
             maxreq = 5;
+            // reset browse list
+            reset_browselist(); 
+
             setNewState(STATE_MASTER_FOUND);
           } 
           // e: rcvd_force_election
@@ -166,19 +154,12 @@ int main(int argc, char** argv) {
       
       case STATE_MASTER_FOUND:
         pdebug("STATE_MASTER_FOUND");
-        // reset browse list
-        reset_browselist(); 
-
         // e: rcvd_browse_list 
         // a: manage_member_list 
         // a: establishConn
         if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
-
-          printf("length: %d\n", strlen(mc_packet.data));
-          printf("test: %s\n", &mc_packet.data[0]);
-
-          setNewState(STATE_BROWSELIST_RCVD);
+          receive_BrowseListItem(mc_packet.data);
         } 
         else if (mc_packet.type == GET_MEMBER_INFO) {
           // TODO need better way to wait
@@ -230,6 +211,9 @@ int main(int argc, char** argv) {
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
           //TODO better handling of waiting time until the new master is ready
           maxreq = 5;
+          // reset browse list
+          reset_browselist(); 
+
           setNewState(STATE_MASTER_FOUND);
           break;
         }
@@ -271,6 +255,7 @@ int main(int argc, char** argv) {
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
            //TODO better handling of waiting time until the new master is ready 
+           reset_browselist();
             setNewState(STATE_MASTER_FOUND);
             break;
           }
@@ -278,21 +263,13 @@ int main(int argc, char** argv) {
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
-            send_multicast(BROWSE_LIST, NULL);
+            for (int i = 0; i < browselistlength; i++) {
+#ifdef DEBUG
+              printf("DEBUG sending browselistentry %d\n", i);
+#endif
+              send_BrowseListItem(i);
+            }
 
-          // TODO
-          // char test[48];
-          // int foo = 16;
-          // int bar = 32;
-          // char dronf[16];
-          // strncpy(dronf, inet_ntoa(localip), 16);
-          // sprintf(&test[0], "%d", foo);
-          // sprintf(&test[16], "%d", bar);
-          // strncpy(&test[32], dronf, 16);
-          //
-          // printf("test: %s\n", (char*)&test[32]);
-
-          //  send_multicast(BROWSE_LIST, (char*)&test);
 
           } 
 
@@ -613,8 +590,7 @@ int send_BrowseListItem(int index) {
   printf("DEBUG sending browse list item: %s\n", data);
 #endif
 
-  receive_BrowseListItem(data);
-
+  send_multicast(BROWSE_LIST, data);
   return 0;
  
 }
@@ -629,6 +605,10 @@ int receive_BrowseListItem(char* data) {
   strncpy(blindex, strtok(NULL, ","), 16);
   strncpy(iplength, strtok(NULL, ","), 16);
   strncpy(ip, strtok(NULL, ","), 16);
+
+  addToBrowseList(ip, atoi(blindex));
+  if ( atoi(blindex) == atoi(bllength) -1)
+    setNewState(STATE_BROWSELIST_RCVD);
 
 #ifdef DEBUG
   printf("DEBUG received index %s of %s with iplength of %s, ip: %s\n", blindex, bllength, iplength, ip);
