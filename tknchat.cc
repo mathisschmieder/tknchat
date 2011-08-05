@@ -181,7 +181,9 @@ int main(int argc, char** argv) {
           setNewState(STATE_BROWSELIST_RCVD);
         } 
         else if (mc_packet.type == GET_MEMBER_INFO) {
+          maxreq = 5;
           pdebug("SENDING MEMBER INFO");
+
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
         else {
@@ -256,6 +258,7 @@ int main(int argc, char** argv) {
             reset_browselist();
             addToBrowseList(inet_ntoa(localip), browselistlength++);
             // Ask all clients for their credentials
+            //send_multicast(BROWSE_LIST, 
             send_multicast(GET_MEMBER_INFO,NULL); 
           }       
         } else {
