@@ -295,7 +295,7 @@ int main(int argc, char** argv) {
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
             // manage_member_list
-            addToBrowseList(mc_packet.data, browselistlength);
+            addToBrowseList(mc_packet.data, browselistlength++);
            
             //  not here??
             //  send_multicast(GET_MEMBER_INFO, NULL); // request every client's credentials
