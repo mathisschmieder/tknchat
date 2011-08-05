@@ -103,13 +103,28 @@ int main(int argc, char** argv) {
         mc_packet = receive_packet(mc_recv);
       } else if (FD_ISSET(s, &rfds)) {
         //we have a new visitor aka data on unicast listening socket
-        pdebug("new incoming unicast connection");
-        int newsock, cli_len;
+        int newsock, cli_len, valid;
         struct sockaddr_in client;
         cli_len = sizeof(client);
+        valid = 0;
         newsock = accept(s, (sockaddr *)&client, (socklen_t *)&cli_len);
-        browselist[0].socket = newsock;
 
+#ifdef DEBUG
+        printf("DEBUG new incoming unicast connection from %s\n", inet_ntoa(client.sin_addr));
+#endif
+      
+        //find out where the connection came from
+        for (int i = 0; i < MAX_MEMBERS; i++) {
+          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) {
+            browselist[i].socket = newsock;
+            valid = 1;
+            break;
+          }
+        }
+        if (valid == 0) {
+          pdebug("closing non-authorized unicast connection");
+          close(newsock);
+        }
       }
       for (int i = 0; i < MAX_MEMBERS; i++) {
         if (browselist[i].socket != 0) {
@@ -117,10 +132,12 @@ int main(int argc, char** argv) {
             char buffer[MAX_MSG_LEN];
             memset(buffer, 0, MAX_MSG_LEN);
             recv(browselist[i].socket, &buffer, MAX_MSG_LEN, 0);
-            printf("received unicast data: %s\n", buffer);
-            if ((int)strlen(buffer) == 0) { //client seems to have disconnected and we have received its FIN
+            if ((int)strlen(buffer) > 0) { 
+              //TODO: handle data
+              printf("%s>> %s\n", browselist[i].name, buffer);
+            } else { //client seems to have disconnected and we have received its FIN
               close(browselist[i].socket);
-              browselist[i].socket = 0;
+              browselist[i].socket = 0;           
             }
           }
         }
