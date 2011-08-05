@@ -142,10 +142,11 @@ int main(int argc, char** argv) {
       for (int i = 0; i < MAX_MEMBERS; i++) {
         if (browselist[i].socket != 0) {
           if (FD_ISSET(browselist[i].socket, &rfds)) {
+            printf("handling data\n");
             local_packet uc_packet;
             packet uc_recv;
             memset(uc_recv.data, 0, strlen(uc_recv.data));
-            recv(sd, &uc_recv, sizeof(uc_recv), 0);
+            recv(browselist[i].socket, &uc_recv, sizeof(uc_recv), 0);
 
             uc_packet = receive_packet(uc_recv);
             printf("received unicast data: %s\n", uc_packet.data);
