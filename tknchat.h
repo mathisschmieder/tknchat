@@ -67,10 +67,12 @@ struct local_packet {
 
 struct sockaddr_in msock;
 int sd; // datagram socket
+int s; // unicast incoming
 
 in_addr getIP(const char*);
 int init_fdSet(fd_set*);
 int setup_multicast();
+int setup_unicast_listen();
 int send_multicast(int, char*);
 void parse_options(int, char**);
 void setNewState(int);
@@ -95,6 +97,7 @@ static struct option long_options[] = {
 struct BrowseList {
   char name[1024];
   char ip[INET_ADDRSTRLEN];
+  int socket;
 } browselist [MAX_MEMBERS];
 
 

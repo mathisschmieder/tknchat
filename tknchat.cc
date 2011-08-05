@@ -60,16 +60,10 @@ int main(int argc, char** argv) {
 
   localip = getIP(eth);
 
-//  reset_browselist();
-//  browselistlength=1;
-//  addToBrowseList(inet_ntoa(localip), 0);
-//  addToBrowseList((char*)"127.0.0.1", 1);
-//  browselistlength = 2;
-//  for (int i = 0; i < browselistlength; i++)
-//    send_BrowseListItem(i);
-
   sd = setup_multicast();
+  s = setup_unicast_listen();
   init_fdSet(&rfds);
+
   
   globalTimer.tv_sec = 1;
   globalTimer.tv_usec = 0;
@@ -99,13 +93,38 @@ int main(int argc, char** argv) {
     assert(retval >= 0);
 
 
-    // Get data from multicast 
-    if ((retval > 0) && (FD_ISSET(sd, &rfds))) {
-      packet mc_recv;
-      memset(mc_recv.data, 0, strlen(mc_recv.data));
-      recv(sd, &mc_recv, sizeof(mc_recv), 0);
+    // Get data from sockets 
+    if (retval > 0) {
+      if (FD_ISSET(sd, &rfds)) {
+        packet mc_recv;
+        memset(mc_recv.data, 0, strlen(mc_recv.data));
+        recv(sd, &mc_recv, sizeof(mc_recv), 0);
 
-      mc_packet = receive_packet(mc_recv);
+        mc_packet = receive_packet(mc_recv);
+      } else if (FD_ISSET(s, &rfds)) {
+        //we have a new visitor aka data on unicast listening socket
+        pdebug("new incoming unicast connection");
+        int newsock, cli_len;
+        struct sockaddr_in client;
+        cli_len = sizeof(client);
+        newsock = accept(s, (sockaddr *)&client, (socklen_t *)&cli_len);
+        browselist[0].socket = newsock;
+
+      }
+      for (int i = 0; i < MAX_MEMBERS; i++) {
+        if (browselist[i].socket != 0) {
+          if (FD_ISSET(browselist[i].socket, &rfds)) {
+            char buffer[MAX_MSG_LEN];
+            memset(buffer, 0, MAX_MSG_LEN);
+            recv(browselist[i].socket, &buffer, MAX_MSG_LEN, 0);
+            printf("received unicast data: %s\n", buffer);
+            if ((int)strlen(buffer) == 0) { //client seems to have disconnected and we have received its FIN
+              close(browselist[i].socket);
+              browselist[i].socket = 0;
+            }
+          }
+        }
+      }
     } else {
       mc_packet.type = (int)NULL;
       memset(mc_packet.data, 0, strlen(mc_packet.data));
@@ -302,6 +321,7 @@ int main(int argc, char** argv) {
     setGlobalTimer(1,0);
   }
 
+  close(s);
   close(sd);
   return 0;
 }
@@ -386,8 +406,12 @@ int init_fdSet(fd_set* fds) {
   FD_SET(0, fds);
   // add multicast 
   FD_SET(sd, fds);
-  // TODO
-  // add unicast
+  // add unicast incoming port
+  FD_SET(s, fds);
+  // add unicast connections
+  for (int i = 0; i < MAX_MEMBERS; i++) 
+    if (browselist[i].socket != 0) 
+      FD_SET(browselist[i].socket, fds);
 }
 
 // Function to setup multicast communication
@@ -433,6 +457,34 @@ int setup_multicast() {
 
   pdebug("multicast set up");
   return sd;
+}
+
+int setup_unicast_listen() {
+  int s;
+  struct sockaddr_in srv;
+
+  pdebug("setting up incoming socket");
+
+  s = socket(AF_INET, SOCK_STREAM, 0);
+  if (s < 0) {
+    perror("Error opening local listening socket");
+    exit(1);
+  }
+
+  srv.sin_addr.s_addr = INADDR_ANY;
+  srv.sin_port = htons(UC_DATA_PORT);
+  srv.sin_family = AF_INET;
+  if (bind(s, (struct sockaddr *)&srv, sizeof(srv)) < 0) {
+    perror("Error binding local listening socket");
+    exit(1);
+  }
+
+  if (listen(s,5) < 0) {
+    perror("Error listening to local socket");
+    exit(1);
+  }
+
+  return s;
 }
 
 // Function to send a multicast packet
