@@ -199,7 +199,10 @@ int main(int argc, char** argv) {
         // e: rcvd_leaved
         // a: manage_member_list
         if ((mc_packet.type == BROWSE_LIST) || (mc_packet.type == LEAVE_GROUP)) {
-          // TODO manage_member_list
+          reset_browselist();
+          setNewState(STATE_MASTER_FOUND);
+          maxreq = 5;
+          receive_BrowseListItem(mc_packet.data);
         }
         break;
 
