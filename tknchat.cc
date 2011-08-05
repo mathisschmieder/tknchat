@@ -458,9 +458,9 @@ int getState() {
 
 // Function to set the global timer used for select
 void setGlobalTimer(int sec, int usec) {
-  #ifdef DEBUG
-    printf("sec: %d, usec: %d\n", sec, usec);
-  #endif
+  //#ifdef DEBUG
+  //  printf("sec: %d, usec: %d\n", sec, usec);
+  //#endif
   globalTimer.tv_sec  = sec;
   globalTimer.tv_usec = usec;
   
