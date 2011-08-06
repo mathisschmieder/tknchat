@@ -823,7 +823,8 @@ int receive_BrowseListItem(char* data) {
   browselistlength == atoi(bllength);
 
   // if index is 0 then we are about to receive a new browselist
-  reset_browselist();
+  if (atoi(blindex) == 0)
+    reset_browselist();
 
   addToBrowseList(ip, atoi(blindex));
 
