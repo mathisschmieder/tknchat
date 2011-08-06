@@ -663,6 +663,7 @@ int send_unicast(int type, char* data) {
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
       returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
       #ifdef DEBUG
+        printf("i: %d\n", i);
         printf("socket: %d\n", browselist[i].socket);
         printf("sending data: %s\n", data);
       #endif
