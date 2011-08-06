@@ -269,6 +269,10 @@ int main(int argc, char** argv) {
           maxreq = 6;
           pdebug("SENDING MEMBER INFO");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
+          maxreq = 5;
+          //TODO better handling of waiting time until the new master is ready 
+          reset_browselist();
+          setNewState(STATE_MASTER_FOUND);
         }
 
         // TODO URGENT
