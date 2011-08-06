@@ -167,8 +167,17 @@ int main(int argc, char** argv) {
 
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               printf("%s>> %s\n", browselist[i].name, uc_packet.data);
-            } else //only null-data packet on unicast is LEAVE_GROUP 
+            } else { //only null-data packet on unicast is LEAVE_GROUP 
               removeFromBrowseList(i);
+              if (appl_state == I_AM_MASTER) { //inform other clients of the part
+                char partindex[3];
+                sprintf(partindex, "%d", i);
+                send_multicast(LEAVE_GROUP, partindex); 
+
+                send_multicast(GET_MEMBER_INFO, NULL);
+                masterdelay = 4; //wait 3 empty cycles until sending out new browselist
+              }
+            }
           }
         }
       }
@@ -291,6 +300,9 @@ int main(int argc, char** argv) {
           // mathis: true, but it does break stuff!
           // maxreq = 5;
           // setNewState(STATE_MASTER_FOUND);
+        } else if (mc_packet.type == LEAVE_GROUP) {
+          //remove client from browselist
+          removeFromBrowseList(atoi(mc_packet.data));
         }
         if ( setup_unicast() < 0) {
           pdebug("error setting up unicast connections, requesting new browse list");
@@ -327,7 +339,7 @@ int main(int argc, char** argv) {
           maxreq = 5;
           setNewState(STATE_I_AM_MASTER);
           // Wait 3 cycles until we are sure that we are the master
-          masterdelay = 4; 
+          masterdelay = 8; 
         }
         break;
 
@@ -337,16 +349,24 @@ int main(int argc, char** argv) {
         if ( mc_packet.type == (int)NULL ) { 
           if (masterdelay > 1)
             masterdelay--;
-          else if (masterdelay == 1) {
+          else if (masterdelay == 5) {
             // Now we are the master
-            masterdelay = 0; 
+            masterdelay--; 
             // Initialize BrowseList
             reset_browselist();
             addToBrowseList(inet_ntoa(localip), browselistlength++);
             // Ask all clients for their credentials
             //send_multicast(BROWSE_LIST, 
             send_multicast(GET_MEMBER_INFO,NULL); 
-          }       
+          } else if (masterdelay == 1) {
+            //the clients had enough time to send us their infos, now we send out the browselist
+            for (int i = 0; i < browselistlength; i++) {
+            #ifdef DEBUG
+              printf("DEBUG sending browselistentry %d\n", i);
+            #endif
+              send_BrowseListItem(i);
+            }
+          }
         } else {
             // e: rcvd_master_level greater than mine
             // a: am_I_the_Master? No
@@ -380,12 +400,7 @@ int main(int argc, char** argv) {
             addToBrowseList(mc_packet.data, browselistlength++);
           } else if ( mc_packet.type == FORCE_ELECTION ) {
             setNewState(STATE_FORCE_ELECTION);
-          } else if ( mc_packet.type == LEAVE_GROUP ) {
-            pdebug("slave quit");
-            alive_req = 0;
-            maxreq = 10;
-            masterdelay = 1;
-          }
+          } 
         }
 
         if (maxreq > 0) {
