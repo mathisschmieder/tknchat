@@ -1,8 +1,10 @@
-- eigenen entry aus der browselist rausnehmen (client mode)
-- unicast-verbindungen aufbauen
-  - active/passive open, also nur eine verbindung pro client-paar
-- die descriptors irgendwo speichern
+DONE - eigenen entry aus der browselist rausnehmen (client mode)
+DONE - unicast-verbindungen aufbauen
+DONE - active/passive open, also nur eine verbindung pro client-paar
+DONE - die descriptors irgendwo speichern
 - input/output
-  - kontroll-befehler wie /quit
+DONE  - kontroll-befehler wie /quit
 - join/part msgs
-- bye-bye-pakete
+DONE - bye-bye-pakete
+- race condition: neuer client connected, browselist wird gesendet, connections werden aufgebaut und hier kommt noch ne neue browse list -> segfault
+- wenn unicast verbindung fehlschlaegt, browselist neu generieren
