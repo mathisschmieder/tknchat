@@ -139,6 +139,10 @@ int main(int argc, char** argv) {
         if ((p = strchr(buffer, '\n')) != NULL)
           *p = '\0';
 
+        if (strncmp("/", buffer, MAX_MSG_LEN)) { // input with / is a command
+          close_chat();
+        }
+
         send_unicast(buffer);
       }
       for (int i = 0; i < MAX_MEMBERS; i++) {
@@ -273,7 +277,10 @@ int main(int argc, char** argv) {
           //TODO better handling of waiting time until the new master is ready 
           reset_browselist();
           setNewState(STATE_MASTER_FOUND);
-
+        } else if (mc_packet.type == LEAVE_GROUP_MASTER) {
+          maxreq = 5;
+          send_multicast(STATE_FORCE_ELECTION, NULL);
+          setNewState(STATE_FORCE_ELECTION);
         }
 
         // TODO URGENT
@@ -373,6 +380,11 @@ int main(int argc, char** argv) {
             addToBrowseList(mc_packet.data, browselistlength++);
           } else if ( mc_packet.type == FORCE_ELECTION ) {
             setNewState(STATE_FORCE_ELECTION);
+          } else if ( mc_packet.type == LEAVE_GROUP ) {
+            pdebug("slave quit");
+            alive_req = 0;
+            maxreq = 10;
+            masterdelay = 1;
           }
         }
 
@@ -409,9 +421,8 @@ int main(int argc, char** argv) {
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
   }
-
-  close(s);
-  close(sd);
+  
+  close_chat();
   return 0;
 }
 
@@ -812,4 +823,18 @@ int receive_BrowseListItem(char* data) {
   return 0;
 }
 
+void close_chat() {
+  pdebug("quitting chat");
+  reset_browselist(); //close all connections by resetting browselist
 
+  //tell the group that we are leaving
+  if (appl_state == I_AM_MASTER)
+    send_multicast(LEAVE_GROUP_MASTER, NULL);
+  else
+    send_multicast(LEAVE_GROUP, NULL);
+
+  close(sd); //close multicast socket
+  close(s);  //close incoming unicast socket
+
+  exit(0); //return successfull code
+}

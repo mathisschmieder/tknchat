@@ -87,6 +87,7 @@ void reset_browselist();
 int send_BrowseListItem(int);
 int receive_BrowseListItem(char*);
 int send_unicast(char*);
+void close_chat();
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
