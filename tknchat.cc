@@ -286,9 +286,12 @@ int main(int argc, char** argv) {
           setNewState(STATE_FORCE_ELECTION);
         }
 
-        // TODO URGENT
-        // removed to check dropping master/slaves
-        setup_unicast();
+        if ( setup_unicast() < 0) {
+          pdebug("error setting up unicast connections, requesting new browse list");
+          reset_browselist();
+          maxreq = 6;
+          setNewState(STATE_MASTER_FOUND);
+        }
 
         // e: rcvd_browse_list
         // e: rcvd_leaved
@@ -603,8 +606,8 @@ int setup_unicast() {
       #endif
       newsock = socket(AF_INET, SOCK_STREAM, 0);
       if (newsock < 0) {
-        perror("Error opening unicast socket");
-        exit(1);
+        perror("Error opening unicast socket, closing chat");
+        close_chat();
       }
 
       options.sin_addr.s_addr = inet_addr(browselist[i].ip);
@@ -614,7 +617,7 @@ int setup_unicast() {
       options.sin_family = AF_INET;
       if (connect(newsock, (struct sockaddr *)&options, sizeof(options)) < 0) {
         perror("Error connecting to unicast socket");
-        exit(1);
+        return -1;
       }
 
       browselist[i].socket = newsock;
