@@ -167,14 +167,14 @@ int main(int argc, char** argv) {
 
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               printf("%s>> %s\n", browselist[i].name, uc_packet.data);
-            } else { //only null-data packet on unicast is LEAVE_GROUP 
+            } else if (appl_state == I_AM_MASTER) { //only null-data packet on unicast is LEAVE_GROUP 
+              printf("received null data, assuming client leave\n");
               removeFromBrowseList(i);
-              if (appl_state == I_AM_MASTER) { //inform other clients of the part
-                char partindex[3];
-                sprintf(partindex, "%d", i);
-                send_multicast(LEAVE_GROUP, partindex); 
-                masterdelay = 5; //reset browselist and wait 3 empty cycles until sending out new browselist
-              }
+              //inform other clients of the part
+              char partindex[3];
+              sprintf(partindex, "%d", i);
+              send_multicast(LEAVE_GROUP, partindex); 
+              masterdelay = 6; //reset browselist and wait 3 empty cycles until sending out new browselist
             }
           }
         }
@@ -433,7 +433,11 @@ int main(int argc, char** argv) {
             send_multicast(CTRL_PKT, NULL);
           }
         }
-        break;
+         printf("current browse list:\n");
+  for (int index = 0; index < browselistlength; index++) {
+    printf("%d: %s, socket %d\n", index, browselist[index].ip, browselist[index].socket);
+  }
+ break;
     }
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
@@ -634,6 +638,8 @@ int setup_unicast() {
       browselist[i].socket = newsock;
     } 
   }
+
+
   return 0; //TODO
 }
 
@@ -774,6 +780,8 @@ void addToBrowseList(char* clientip, int i) {
       printf("host: %s\n", browselist[i].name);
     #endif
   }
+
+
 }
 
 void removeFromBrowseList(int i) {
