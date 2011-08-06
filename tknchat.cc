@@ -649,35 +649,6 @@ void setGlobalTimer(int sec, int usec) {
   //#endif
   globalTimer.tv_sec  = sec;
   globalTimer.tv_usec = usec;
-  
-// TODO WTF
-//  static int i_sec;
-//  static int i_usec;
-//  if ((globalTimer.tv_sec == -1) && (globalTimer.tv_usec == -1))
-//    {
-//      printf("1\n");
-//      globalTimer.tv_sec  = i_sec;
-//      globalTimer.tv_usec = i_usec;
-//      return;
-//    }
-//
-//  i_sec  = sec;
-//  i_usec = usec;
-//
-// TODO DELUXE BRACKET WTF
-//  if (sec <= globalTimer.tv_sec)
-//    if (usec <= globalTimer.tv_usec)
-//       printf("2\n");
-//  {
-//	globalTimer.tv_sec  = sec;
-//	globalTimer.tv_usec = usec;
-//      }
-//
-//  if ((globalTimer.tv_sec == 0) && (globalTimer.tv_usec == 0)) {
-//    printf("3\n");
-//    globalTimer.tv_sec  = sec;
-//    globalTimer.tv_usec = usec;
-//   }
 }
 
 packet create_packet(int type, char* data) {
@@ -718,9 +689,9 @@ local_packet receive_packet(packet packet) {
   local_packet.datalen = header & 65535;
 
   memset(local_packet.data, 0, strlen(local_packet.data));
-#ifdef DEBUG
-  printf("DEBUG received type: %d\n", local_packet.type);
-#endif
+  #ifdef DEBUG
+    printf("DEBUG received type: %d\n", local_packet.type);
+  #endif
 
   if (local_packet.datalen != 0) {
     strncpy(local_packet.data, packet.data, sizeof(packet.data));
@@ -790,9 +761,9 @@ int send_BrowseListItem(int index) {
   strncat(data, ",", 1);
   strncat(data, ip, 16);
 
-#ifdef DEBUG
-  printf("DEBUG sending browse list item: %s\n", data);
-#endif
+  #ifdef DEBUG
+    printf("DEBUG sending browse list item: %s\n", data);
+  #endif
 
   send_multicast(BROWSE_LIST, data);
   return 0;
@@ -814,9 +785,9 @@ int receive_BrowseListItem(char* data) {
   if ( atoi(blindex) == atoi(bllength) -1)
     setNewState(STATE_BROWSELIST_RCVD);
 
-#ifdef DEBUG
-  printf("DEBUG received index %s of %s with iplength of %s, ip: %s\n", blindex, bllength, iplength, ip);
-#endif
+  #ifdef DEBUG
+    printf("DEBUG received index %s of %s with iplength of %s, ip: %s\n", blindex, bllength, iplength, ip);
+  #endif
   return 0;
 }
 
