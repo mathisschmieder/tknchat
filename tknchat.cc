@@ -37,6 +37,7 @@ int seqno;
 int browselistlength = 0;
 char host[1024];
 in_addr localip;
+int localindex;
 
 // The main method
 int main(int argc, char** argv) {
@@ -269,11 +270,15 @@ int main(int argc, char** argv) {
           maxreq = 6;
           pdebug("SENDING MEMBER INFO");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
+          //TODO better handling of waiting time until the new master is ready 
+          reset_browselist();
+          setNewState(STATE_MASTER_FOUND);
+
         }
 
         // TODO URGENT
         // removed to check dropping master/slaves
-        //setup_unicast();
+        setup_unicast();
 
         // e: rcvd_browse_list
         // e: rcvd_leaved
@@ -575,10 +580,10 @@ int setup_unicast_listen() {
 int setup_unicast() {
   int newsock;
   struct sockaddr_in options;
-  for (int i = 0; i < MAX_MEMBERS; i++) {
+  for (int i = 0; i < localindex; i++) {
     if ((browselist[i].socket == 0) 
-        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 )
-        && (strncmp(browselist[i].ip, "", INET_ADDRSTRLEN) != 0)) {
+        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) // this should be obsolete
+        && (strncmp(browselist[i].ip, "", INET_ADDRSTRLEN) != 0)) {               // so should this
       #ifdef DEBUG
         printf("DEBUG opening connection to %s, i is %d\n", browselist[i].ip, i);
       #endif
@@ -726,6 +731,10 @@ void addToBrowseList(char* clientip, int i) {
     }
   }
   else {
+    if (strncmp(clientip, inet_ntoa(localip), INET_ADDRSTRLEN) == 0) {
+      localindex = i; //local index in browselist
+      printf("local index: %d\n", localindex);
+    }
     strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
     hostent* host;
     in_addr ip;
@@ -741,9 +750,13 @@ void addToBrowseList(char* clientip, int i) {
 }
 
 void reset_browselist() {
-  for (int i = 0; i < MAX_MEMBERS - 1; i++) {
+  for (int i = 0; i < browselistlength - 1; i++) {
     memset(browselist[i].name, 0, strlen(browselist[i].name));
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
+    if ( browselist[i].socket != 0) {
+      printf("closing socket %d\n", i);
+      close(browselist[i].socket);
+    }
   }
   browselistlength = 0;
 }
