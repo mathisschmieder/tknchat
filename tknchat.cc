@@ -270,6 +270,7 @@ int main(int argc, char** argv) {
           pdebug("SENDING MEMBER INFO");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
+
         // TODO URGENT
         // removed to check dropping master/slaves
         //setup_unicast();
