@@ -83,10 +83,11 @@ void pdebug(const char*);
 packet create_packet(int, char*);
 local_packet receive_packet(packet);
 void addToBrowseList(char*, int);
+void removeFromBrowseList(int);
 void reset_browselist();
 int send_BrowseListItem(int);
 int receive_BrowseListItem(char*);
-int send_unicast(char*);
+int send_unicast(int, char*);
 void close_chat();
 
 static struct option long_options[] = { 

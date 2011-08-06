@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
             close_chat();
         }
 
-        send_unicast(buffer);
+        send_unicast(DATA_PKT,buffer);
       }
       for (int i = 0; i < MAX_MEMBERS; i++) {
         if (browselist[i].socket != 0) {
@@ -161,12 +161,10 @@ int main(int argc, char** argv) {
             printf("unicast received type: %d\n", uc_packet.type);
             printf("unicast received from: %s\n", browselist[i].name);
 
-            if ((int)strlen(uc_packet.data) > 0) {
+            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               printf("%s>> %s\n", browselist[i].name, uc_packet.data);
-            } else {
-              close(browselist[i].socket);
-              browselist[i].socket = 0;
-            }
+            } else //only null-data packet on unicast is LEAVE_GROUP 
+              removeFromBrowseList(i);
           }
         }
       }
@@ -634,9 +632,9 @@ int send_multicast(int type, char* data) {
     return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
-int send_unicast(char* data) {
+int send_unicast(int type, char* data) {
   packet packet;
-  packet = create_packet(DATA_PKT, data);
+  packet = create_packet(type, data);
   int returnvalue;
   returnvalue = 0;
 
@@ -730,7 +728,6 @@ void addToBrowseList(char* clientip, int i) {
   // Check if item already exists in browselist
   // starting with first slave
   for (int index = 1; index < i; index++) {
-    printf("%s / %s\n", browselist[index].ip, clientip);
     if (!strcmp(browselist[index].ip,clientip)) {
       duplicate = 1;
     }
@@ -746,7 +743,6 @@ void addToBrowseList(char* clientip, int i) {
   else {
     if (strncmp(clientip, inet_ntoa(localip), INET_ADDRSTRLEN) == 0) {
       localindex = i; //local index in browselist
-      printf("local index: %d\n", localindex);
     }
     strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
     hostent* host;
@@ -762,15 +758,25 @@ void addToBrowseList(char* clientip, int i) {
   }
 }
 
+void removeFromBrowseList(int i) {
+#ifdef DEBUG
+  printf("DEBUG removing entry %d from browselist\n", i);
+#endif
+
+  memset(browselist[i].name, 0, strlen(browselist[i].name));
+  memset(browselist[i].ip, 0, strlen(browselist[i].ip));
+   if ( browselist[i].socket != 0) {
+#ifdef DEBUG
+    printf("closing socket %d\n", i);
+#endif
+    close(browselist[i].socket);
+    browselist[i].socket = 0;
+  }
+}
+
 void reset_browselist() {
   for (int i = 0; i < browselistlength - 1; i++) {
-    memset(browselist[i].name, 0, strlen(browselist[i].name));
-    memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
-    if ( browselist[i].socket != 0) {
-      printf("closing socket %d\n", i);
-      close(browselist[i].socket);
-      browselist[i].socket = 0;
-    }
+    removeFromBrowseList(i);
   }
   browselistlength = 0;
 }
@@ -813,12 +819,8 @@ int receive_BrowseListItem(char* data) {
   strncpy(iplength, strtok(NULL, ","), 16);
   strncpy(ip, strtok(NULL, ","), 16);
 
+  browselistlength == atoi(bllength);
   addToBrowseList(ip, atoi(blindex));
-  if ( atoi(blindex) == atoi(bllength) -1) {
-    setNewState(STATE_BROWSELIST_RCVD);
-    browselistlength == atoi(bllength);
-    printf("browselistlength now is %d\n", atoi(bllength));
-  }
 
   #ifdef DEBUG
     printf("DEBUG received index %s of %s with iplength of %s, ip: %s\n", blindex, bllength, iplength, ip);
@@ -834,7 +836,7 @@ void close_chat() {
   if (appl_state == I_AM_MASTER)
     send_multicast(LEAVE_GROUP_MASTER, NULL);
   else
-    send_multicast(LEAVE_GROUP, NULL);
+    send_unicast(LEAVE_GROUP, NULL);
 
   close(sd); //close multicast socket
   close(s);  //close incoming unicast socket
