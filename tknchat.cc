@@ -94,6 +94,10 @@ int main(int argc, char** argv) {
     // Abort execution if select terminated with an error
     assert(retval >= 0);
 
+    //clearing last states multicast packet
+    mc_packet.type = (int)NULL;
+    memset(mc_packet.data, 0, strlen(mc_packet.data));
+
 
     // Get data from sockets 
     if (retval > 0) {
@@ -168,11 +172,7 @@ int main(int argc, char** argv) {
           }
         }
       }
-    } else {
-      mc_packet.type = (int)NULL;
-      memset(mc_packet.data, 0, strlen(mc_packet.data));
-    }
-
+    } 
 
     // STATE MACHINE
     switch(appl_state) {
