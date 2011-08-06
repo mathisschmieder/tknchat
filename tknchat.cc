@@ -265,7 +265,11 @@ int main(int argc, char** argv) {
           pdebug("master alive");
           send_multicast(CTRL_PKT, inet_ntoa(localip));
         }
-
+        else if (mc_packet.type == GET_MEMBER_INFO) {
+          maxreq = 6;
+          pdebug("SENDING MEMBER INFO");
+          send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
+        }
         // TODO URGENT
         // removed to check dropping master/slaves
         //setup_unicast();
