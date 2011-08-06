@@ -771,6 +771,7 @@ void reset_browselist() {
     if ( browselist[i].socket != 0) {
       printf("closing socket %d\n", i);
       close(browselist[i].socket);
+      browselist[i].socket = 0;
     }
   }
   browselistlength = 0;
