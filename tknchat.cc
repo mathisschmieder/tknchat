@@ -750,9 +750,13 @@ void addToBrowseList(char* clientip, int i) {
 }
 
 void reset_browselist() {
-  for (int i = 0; i < MAX_MEMBERS - 1; i++) {
+  for (int i = 0; i < browselistlength - 1; i++) {
     memset(browselist[i].name, 0, strlen(browselist[i].name));
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
+    if ( browselist[i].socket != 0) {
+      printf("closing socket %d\n", i);
+      close(browselist[i].socket);
+    }
   }
   browselistlength = 0;
 }
