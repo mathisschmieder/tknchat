@@ -122,6 +122,7 @@ int main(int argc, char** argv) {
         //find out where the connection came from
         for (int i = 0; i < MAX_MEMBERS; i++) {
           if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) {
+            printf("POINT1 socket\n");
             browselist[i].socket = newsock;
             valid = 1;
             break;
@@ -628,6 +629,7 @@ int setup_unicast() {
         perror("Error connecting to unicast socket");
         return -1;
       }
+      printf("POINT2 socket\n");
 
       browselist[i].socket = newsock;
     } 
@@ -790,6 +792,7 @@ void removeFromBrowseList(int i) {
     printf("closing socket %d\n", i);
 #endif
     close(browselist[i].socket);
+    printf("POINT3 socket\n");
     browselist[i].socket = 0;
   }
 }
