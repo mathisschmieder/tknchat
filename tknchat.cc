@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
 
         // TODO respond to master pings
 
-        if (alive_req < 15) {
+        if (alive_req < 25) {
           alive_req++;
         }
         else {
