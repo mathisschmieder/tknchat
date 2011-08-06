@@ -139,8 +139,9 @@ int main(int argc, char** argv) {
         if ((p = strchr(buffer, '\n')) != NULL)
           *p = '\0';
 
-        if (strncmp("/", buffer, MAX_MSG_LEN)) { // input with / is a command
-          close_chat();
+        if (strncmp("/", &buffer[0], 1) == 0) { // input with / is a command
+          if (strncmp("quit", &buffer[1], 5) == 0)
+            close_chat();
         }
 
         send_unicast(buffer);
