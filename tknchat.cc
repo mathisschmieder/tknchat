@@ -782,8 +782,11 @@ int receive_BrowseListItem(char* data) {
   strncpy(ip, strtok(NULL, ","), 16);
 
   addToBrowseList(ip, atoi(blindex));
-  if ( atoi(blindex) == atoi(bllength) -1)
+  if ( atoi(blindex) == atoi(bllength) -1) {
     setNewState(STATE_BROWSELIST_RCVD);
+    browselistlength == atoi(bllength);
+    printf("browselistlength now is %d\n", atoi(bllength));
+  }
 
   #ifdef DEBUG
     printf("DEBUG received index %s of %s with iplength of %s, ip: %s\n", blindex, bllength, iplength, ip);
