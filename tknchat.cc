@@ -625,6 +625,7 @@ int setup_unicast() {
 int send_multicast(int type, char* data) {
   packet packet;
   packet = create_packet(type, data);
+  printf("sending multicast type: %d\n", type);
   if ( data != NULL) {
     //                                    +4 (header) 
     return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
