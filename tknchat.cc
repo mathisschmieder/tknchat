@@ -173,9 +173,7 @@ int main(int argc, char** argv) {
                 char partindex[3];
                 sprintf(partindex, "%d", i);
                 send_multicast(LEAVE_GROUP, partindex); 
-                reset_browselist();
-                send_multicast(GET_MEMBER_INFO, NULL);
-                masterdelay = 4; //wait 3 empty cycles until sending out new browselist
+                masterdelay = 5; //reset browselist and wait 3 empty cycles until sending out new browselist
               }
             }
           }
