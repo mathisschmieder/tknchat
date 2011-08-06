@@ -1,81 +1,125 @@
 #include <ncurses.h>
+#include <cstring>
 
 
-WINDOW *create_newwin(int height, int width, int starty, int startx);
+WINDOW *create_newwin(int height, int width, int ystart, int xstart, int border);
 void destroy_win(WINDOW *local_win);
 
 int main(int argc, char *argv[])
-{ WINDOW *my_win;
-  int startx, starty, width, height;
+{ WINDOW *output_win, *input_win;
+  int output_xstart, output_ystart, output_width, output_height;
+  int input_xstart, input_ystart, input_width, input_height;
+
   int ch;
 
-  initscr();      /* Start curses mode    */
-  noecho();     /* Don't echo() while we do getch */
+  // Start curses mode
+  initscr();
+  // Don't echo() while we do getch
+  noecho();
 
-  // ENTER SPIELEREIEN
-  //cbreak();     /* Line buffering disabled
-  //raw();
-  //nonl();
+  // Line buffering disabled
+  //cbreak();
 
-  keypad(stdscr, TRUE);   /* I need that nifty F1   */
+  // I need F1
+  keypad(stdscr, TRUE);   
 
-  height = 3;
-  width = COLS -1;
-  starty = LINES - height;
-  startx = 1;
-  printw("Press F1 to exit");
+  // never forget
   refresh();
-  my_win = create_newwin(height, width, starty, startx);
 
-  int xpos = 1;
-  int ypos = 1;
+  // Define output window
+  output_xstart = 0;
+  output_ystart = 0;
+  output_height = LINES - 3;
+  output_width = COLS;
+  output_win = create_newwin(output_height, output_width, output_ystart, output_xstart, 0);
+  // BORDER
+  //output_win = create_newwin(output_height, output_width, output_ystart, output_xstart, 1);
 
-  int input_xpos = startx+2;
-  int input_ypos = LINES-height+1;
-  mvprintw(LINES-height+1, xpos, "");
-  char myinput[80];
+  scrollok(output_win, true);
+  idlok(output_win, true);
+  wrefresh(output_win);
 
+  // Define input window
+  input_xstart = 0;
+  input_ystart = LINES - 3;
+  input_height = 3;
+  input_width = COLS;
+  input_win = create_newwin(input_height, input_width, input_ystart, input_xstart, 1);
+
+
+  // Define state
+  int state_xpos = COLS - 23;
+  int state_ypos = LINES - input_height;
+
+  char state[22];
+  strncpy(state, "STATE_BROWSELIST_RCVD", 22);
+
+  mvprintw(state_ypos, state_xpos, "%s", state);
+
+  // Define cursor
+  int output_xpos = output_xstart+1;
+  int output_ypos = output_ystart+1;
+
+  int input_xpos = input_xstart+1;
+  int input_ypos = input_ystart+1;
+  move(input_ypos, input_xpos);
+
+
+  // Define input
   int index = 0;
-  myinput[index++] = '>';
-  
+  char input[80];
+  memset(input, 0, 80);
 
   while((ch = getch()) != KEY_F(1))
   { switch(ch)
-    { //case KEY_LEFT:
-      //  destroy_win(my_win);
-      //  my_win = create_newwin(height, width, starty,--startx);
-      //  break;
-      //case KEY_RIGHT:
-      //  destroy_win(my_win);
-      //  my_win = create_newwin(height, width, starty,++startx);
-      //  break;
-      //case KEY_UP:
-      //  destroy_win(my_win);
-      //  my_win = create_newwin(height, width, --starty,startx);
-      //  break;
-      //case KEY_DOWN:
-      //  destroy_win(my_win);
-      //  my_win = create_newwin(height, width, ++starty,startx);
-      //  break;  
+    { 
+      case KEY_BACKSPACE:
+        if (input_xpos > input_xstart+1) {
+          index--;
+          input[index] = (char)NULL;
+          input_xpos--;
+          mvaddch(input_ypos, input_xpos,' ');
+          move(input_ypos, input_xpos);
+        }
+        break;
+      case KEY_UP:
+          wscrl(output_win, -1);
+          output_ypos++;
+          move(input_ypos, input_xpos);
+          wrefresh(output_win);
+        break;
       case KEY_DOWN:
+          wscrl(output_win, 1);
+          output_ypos--;
+          move(input_ypos, input_xpos);
+          wrefresh(output_win);
+        break;
       case KEY_ENTER:
       case '\n':
-        mvprintw(ypos, xpos, "%s", myinput);
-        ypos++;
+        mvwprintw(output_win,output_ypos, output_xpos, "%s", input);
+        wrefresh(output_win);
+        output_ypos++;
 
-
-        input_xpos = startx+2;
-        for(int i = 0; i <= index; i++) {
-          myinput[i] = (char)NULL;
-          mvprintw(input_ypos, input_xpos+i, "%c", ' ');
+        if(output_ypos == output_height) {
+          wscrl(output_win, 1);
+          output_ypos--;
+          move(input_ypos, input_xpos);
+          wrefresh(output_win);
         }
-        index = 0;
-        myinput[index++] = '>';
-        mvprintw(input_ypos, input_xpos, "");
+
+
+        memset(input, 0, 80);
+
+        while (index > 0) {
+          index--;
+          input_xpos--;
+          mvaddch(input_ypos, input_xpos,' ');
+          move(input_ypos, input_xpos);
+        }
         break;
       default:
         mvprintw(input_ypos, input_xpos, "%c", ch);
-        myinput[index++] = ch;
+        input[index++] = ch;
         input_xpos++;
         break;
     }
@@ -85,13 +129,15 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-WINDOW *create_newwin(int height, int width, int starty, int startx)
+WINDOW *create_newwin(int height, int width, int ystart, int xstart, int border)
 { WINDOW *local_win;
 
-  local_win = newwin(height, width, starty, startx);
-  box(local_win, 0 , 0);    /* 0, 0 gives default characters 
+  local_win = newwin(height, width, ystart, xstart);
+  if (border == 1) {
+    box(local_win, 0 , 0);    /* 0, 0 gives default characters 
            * for the vertical and horizontal
            * lines      */
+  }
   wrefresh(local_win);    /* Show that box    */
 
   return local_win;
