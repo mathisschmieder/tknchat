@@ -673,7 +673,7 @@ packet create_packet(int type, char* data) {
   uint32_t header;
   uint16_t datalen;
 
-  memset(packet.data, 0, strlen(packet.data));
+  memset(packet.data, 0, MAX_MSG_LEN);
 
   if (data != NULL) { //we dont need neither datalen nor data if there is no data
     datalen = strlen(data);
