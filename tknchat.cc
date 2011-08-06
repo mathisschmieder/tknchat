@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
         // e: rcvd_browse_list
         // e: rcvd_leaved
         // a: manage_member_list
-        if ((mc_packet.type == BROWSE_LIST) || (mc_packet.type == LEAVE_GROUP)) {
+        if ((mc_packet.type == BROWSE_LIST)) {
           reset_browselist();
           // TODO differs from state tree diagram
           // should stay in this state
