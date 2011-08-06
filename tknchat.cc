@@ -799,7 +799,7 @@ void removeFromBrowseList(int i) {
 }
 
 void reset_browselist() {
-  for (int i = 0; i < browselistlength - 1; i++) {
+  for (int i = 0; i < MAX_MEMBERS - 1; i++) {
     removeFromBrowseList(i);
   }
   browselistlength = 0;
@@ -844,6 +844,7 @@ int receive_BrowseListItem(char* data) {
   strncpy(ip, strtok(NULL, ","), 16);
 
   browselistlength == atoi(bllength);
+  printf("new browselist length: %d\n", browselistlength);
 
   // if index is 0 then we are about to receive a new browselist
   if (atoi(blindex) == 0)
