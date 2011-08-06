@@ -158,6 +158,7 @@ int main(int argc, char** argv) {
             recv(browselist[i].socket, &uc_recv, sizeof(uc_recv), 0);
 
             uc_packet = receive_packet(uc_recv);
+            printf("unicast received type: %d\n", uc_packet.type);
 
             if ((int)strlen(uc_packet.data) > 0) {
               printf("%s>> %s\n", browselist[i].name, uc_packet.data);
