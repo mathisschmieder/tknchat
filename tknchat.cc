@@ -291,13 +291,7 @@ int main(int argc, char** argv) {
         // e: rcvd_leaved
         // a: manage_member_list
         else if ((mc_packet.type == BROWSE_LIST)) {
-          reset_browselist();
           receive_BrowseListItem(mc_packet.data);
-          // TODO differs from state tree diagram
-          // should stay in this state
-          // mathis: true, but it does break stuff!
-          // maxreq = 5;
-          // setNewState(STATE_MASTER_FOUND);
         } else if (mc_packet.type == LEAVE_GROUP) {
           //remove client from browselist
           removeFromBrowseList(atoi(mc_packet.data));
