@@ -224,6 +224,7 @@ int main(int argc, char** argv) {
         if (mc_packet.type == BROWSE_LIST) {
           maxreq = 5;
           receive_BrowseListItem(mc_packet.data);
+          setNewState(STATE_BROWSELIST_RCVD);
         } 
         else if (mc_packet.type == GET_MEMBER_INFO) {
           maxreq = 6;
@@ -288,8 +289,8 @@ int main(int argc, char** argv) {
           // TODO differs from state tree diagram
           // should stay in this state
           // mathis: true, but it does break stuff!
-          maxreq = 5;
-          setNewState(STATE_MASTER_FOUND);
+          // maxreq = 5;
+          // setNewState(STATE_MASTER_FOUND);
         }
         if ( setup_unicast() < 0) {
           pdebug("error setting up unicast connections, requesting new browse list");
