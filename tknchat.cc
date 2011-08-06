@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
                 char partindex[3];
                 sprintf(partindex, "%d", i);
                 send_multicast(LEAVE_GROUP, partindex); 
-
+                reset_browselist();
                 send_multicast(GET_MEMBER_INFO, NULL);
                 masterdelay = 4; //wait 3 empty cycles until sending out new browselist
               }
@@ -347,9 +347,11 @@ int main(int argc, char** argv) {
         pdebug("STATE_I_AM_MASTER");
         // Have we received a multicast packet?
         if ( mc_packet.type == (int)NULL ) { 
+          printf("masterdelay: %d\n", masterdelay);
           if (masterdelay > 1)
             masterdelay--;
-          else if (masterdelay == 5) {
+          if (masterdelay == 5) {
+            printf("adding ourself\n");
             // Now we are the master
             masterdelay--; 
             // Initialize BrowseList
@@ -365,6 +367,7 @@ int main(int argc, char** argv) {
               printf("DEBUG sending browselistentry %d\n", i);
             #endif
               send_BrowseListItem(i);
+              masterdelay = 0;
             }
           }
         } else {
@@ -380,6 +383,7 @@ int main(int argc, char** argv) {
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
+            masterdelay = 0; //prevent sending the browselist a second time later on
             for (int i = 0; i < browselistlength; i++) {
             #ifdef DEBUG
               printf("DEBUG sending browselistentry %d\n", i);
@@ -422,7 +426,7 @@ int main(int argc, char** argv) {
             // TODO best way to handle this?
             alive_req = 0;
             maxreq = 10;
-            masterdelay = 1;
+            masterdelay = 6;
           }
           else {
             maxreq = 10;
