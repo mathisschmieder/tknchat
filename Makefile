@@ -1,6 +1,6 @@
 debug:
-		g++  -DDEBUG -lpthread -lncurses tknchat.cc -o tknchat
-tkn:
-		g++ -lpthread -lncurses tknchat.cc -o tknchat
+		g++  -DDEBUG -lpthread -lncurses tknchat-masterping.cc -o tknchat
+masterping:
+		g++ -lpthread -lncurses tknchat-masterping.cc -o tknchat
 
-all: debug
+all: masterping

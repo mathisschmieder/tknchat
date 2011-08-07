@@ -674,12 +674,6 @@ int init_fdSet(fd_set* fds) {
       FD_SET(browselist[i].socket, fds);
 }
 
-// Function to setup internal socket for
-// input handling
-int setup_input() {
-  si = socket(AF_UNIX, SOCK_STREAM, 0);
-}
-
 // Function to setup multicast communication
 int setup_multicast() {
   int sd;
