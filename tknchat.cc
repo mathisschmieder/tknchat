@@ -311,7 +311,7 @@ int main(int argc, char** argv) {
        // print broweselist instead
         printf("browselist length: %d\n", browselistlength);
         for (int i = 0; i < browselistlength; i++) {
-          printf("%d: %s\n", i, browselist[i].name);
+          printf("%d: %s, socket %d\n", i, browselist[i].name, browselist[i].socket);
         }
         break;
 
