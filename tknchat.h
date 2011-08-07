@@ -18,6 +18,8 @@
 #include <cstring>
 #include <ifaddrs.h>
 #include <netdb.h>
+#include <ncurses.h>
+#include <pthread.h>
 
 #define MC_GROUP_ADDR "225.2.0.1"
 #define MC_GROUP_PORT 5020
@@ -77,9 +79,7 @@ int setup_unicast();
 int send_multicast(int, char*);
 void parse_options(int, char**);
 void setNewState(int);
-int getState();
 void setGlobalTimer(int, int);
-void pdebug(const char*);
 packet create_packet(int, char*);
 local_packet receive_packet(packet);
 void addToBrowseList(char*, int);
@@ -89,12 +89,18 @@ int send_BrowseListItem(int);
 int receive_BrowseListItem(char*);
 int send_unicast(int, char*);
 void close_chat();
+WINDOW *create_newwin(int height, int width, int ystart, int xstart, int border);
+void destroy_win(WINDOW *local_win);
+
+void pdebug(const char* fmt, ...);
+void poutput(const char* fmt, ...);
+
+void *get_input(void *arg);
 
 static struct option long_options[] = { 
   { "help",       0, NULL, 'h' }, 
   { "version",    0, NULL, 'v' }, 
   { "interface",  1, NULL, 'i' }, 
-  { "nick",       1, NULL, 'n' }, 
   { NULL,         0, NULL,  0  } 
 }; 
 
@@ -103,5 +109,3 @@ struct BrowseList {
   char ip[INET_ADDRSTRLEN];
   int socket;
 } browselist [MAX_MEMBERS];
-
-
