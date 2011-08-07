@@ -343,12 +343,13 @@ int main(int argc, char** argv) {
         // and see if master is still there
 
         if ( mc_packet.type == (int)NULL ) { //if there is no data, increment alive_req to check if the master still lives
-          if (alive_req < 25) {
-            alive_req++;
-          } else {
-            pdebug(" master dead!\n");
-            setNewState(STATE_FORCE_ELECTION);
-          }
+          // FIXME
+         // if (alive_req < 25) {
+         //   alive_req++;
+         // } else {
+         //   pdebug(" master dead!\n");
+         //   setNewState(STATE_FORCE_ELECTION);
+         // }
         } else if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen == 0)) { //master ping, respond to it with a control packet and our ip
           alive_req = 0;
           pdebug(" master alive\n");
@@ -467,34 +468,36 @@ int main(int argc, char** argv) {
           } 
         }
 
-        if (maxreq > 0) {
-          maxreq--;
-          if (alive_req > 1) {
-            if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen > 0)) {
-              alive_req--;
-            }
-          }
-          // All slaves replied
-          else if (alive_req == 1) {
-            alive_req = 0;
-            pdebug(" all slaves alive\n");
-          }
-        }
-        else {
-          if (alive_req > 0) {
-            pdebug(" slave dead!\n");
-            // TODO best way to handle this?
-            alive_req = 0;
-            maxreq = 10;
-            masterdelay = 6;
-          }
-          else {
-            maxreq = 10;
-            alive_req = browselistlength;
-            pdebug(" master ping!\n");
-            send_multicast(CTRL_PKT, NULL);
-          }
-        }
+        // FIXME
+
+       // if (maxreq > 0) {
+       //   maxreq--;
+       //   if (alive_req > 1) {
+       //     if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen > 0)) {
+       //       alive_req--;
+       //     }
+       //   }
+       //   // All slaves replied
+       //   else if (alive_req == 1) {
+       //     alive_req = 0;
+       //     pdebug(" all slaves alive\n");
+       //   }
+       // }
+       // else {
+       //   if (alive_req > 0) {
+       //     pdebug(" slave dead!\n");
+       //     // TODO best way to handle this?
+       //     alive_req = 0;
+       //     maxreq = 10;
+       //     masterdelay = 6;
+       //   }
+       //   else {
+       //     maxreq = 10;
+       //     alive_req = browselistlength;
+       //     pdebug(" master ping!\n");
+       //     send_multicast(CTRL_PKT, NULL);
+       //   }
+       // }
         break;
     }
     init_fdSet(&rfds);
