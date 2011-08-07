@@ -201,9 +201,6 @@ int main(int argc, char** argv) {
           if (mc_packet.type == I_AM_MASTER) {
             pdebug("master found");
             maxreq = 6;
-            // reset browse list
-            reset_browselist(); 
-
             setNewState(STATE_MASTER_FOUND);
           } 
           // e: rcvd_force_election
@@ -281,7 +278,6 @@ int main(int argc, char** argv) {
           pdebug("SENDING MEMBER INFO");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
           //TODO better handling of waiting time until the new master is ready <- this still necessary? 
-          reset_browselist();
           setNewState(STATE_MASTER_FOUND);
         } else if (mc_packet.type == LEAVE_GROUP_MASTER) {
           maxreq = 5;
