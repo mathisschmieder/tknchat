@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
 
   //initialize browselist
   for (int i = 0; i < MAX_MEMBERS; i++) {
-    browselist[i].socket == -1;
+    browselist[i].socket = -1;
   }
 
   // Multicast packet
@@ -534,8 +534,10 @@ int init_fdSet(fd_set* fds) {
   FD_SET(s, fds);
   // add unicast connections
   for (int i = 0; i < MAX_MEMBERS; i++) 
-    if (browselist[i].socket > 0) 
+    if (browselist[i].socket > 0) {
+      printf("adding %d to fdset\n", i); 
       FD_SET(browselist[i].socket, fds);
+    }
 }
 
 // Function to setup multicast communication
@@ -795,7 +797,7 @@ void removeFromBrowseList(int i) {
   memset(browselist[i].ip, 0, strlen(browselist[i].ip));
    if ( browselist[i].socket != -1) {
 #ifdef DEBUG
-    printf("closing socket %d\n", i);
+    printf("closing socket %d\n", browselist[i].socket);
 #endif
     close(browselist[i].socket);
     printf("POINT3 socket\n");
