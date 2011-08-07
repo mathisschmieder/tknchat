@@ -174,7 +174,14 @@ int main(int argc, char** argv) {
     // there is data available
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
     // Abort execution if select terminated with an error
-    assert(retval >= 0);
+    //assert(retval >= 0);
+    if (retval  < 0) {
+      pdebug(" something horrible happened\n");
+      pdebug(" current browselistlength: %s\n", browselistlength);
+      for (int i = 0; i < browselistlength; i++) {
+        pdebug(" index: %d, name: %s, socket %d\n", i, browselist[i].name, browselist[i].socket);
+      }
+    }
 
     //clearing last states multicast packet
     mc_packet.type = (int)NULL;
@@ -257,6 +264,7 @@ int main(int argc, char** argv) {
               }
             } else {
               //TODO explanation why this is necessary
+              pdebug(" penis\n");
               browselistlength = removeFromBrowseList(i);
             }
           }
@@ -373,11 +381,13 @@ int main(int argc, char** argv) {
         // e: rcvd_leaved
         // a: manage_member_list
         else if ((mc_packet.type == BROWSE_LIST)) {
-          receive_BrowseListItem(mc_packet.data);
+          browselistlength = receive_BrowseListItem(mc_packet.data);
         } else if (mc_packet.type == LEAVE_GROUP) {
           //remove client from browselist
           poutput(" >>> %s left the building\n", browselist[atoi(mc_packet.data)].name);
-          removeFromBrowseList(atoi(mc_packet.data));
+          pdebug(" bllength before removing: %d\n", browselistlength);
+          browselistlength = removeFromBrowseList(atoi(mc_packet.data));
+          pdebug(" bllength after removing: %d\n", browselistlength);
         }
         if ( setup_unicast() < 0) {
           pdebug(" error setting up unicast connections, requesting new browse list\n");
@@ -969,7 +979,10 @@ int removeFromBrowseList(int i) {
     }
   }
 
-  return browselistlength - 1;
+  int newbllength;
+  newbllength = browselistlength - 1;
+  pdebug(" new browselist length: %d\n", newbllength);
+  return newbllength;
 }
 
 // Function to reset the BrowseList
