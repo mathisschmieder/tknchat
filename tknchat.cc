@@ -176,6 +176,9 @@ int main(int argc, char** argv) {
               sprintf(partindex, "%d", i);
               send_multicast(LEAVE_GROUP, partindex); 
               masterdelay = 6; //reset browselist and wait 3 empty cycles until sending out new browselist
+            } else {
+              printf("force-closing socket %d\n", browselist[i].socket);
+              close(browselist[i].socket);
             }
           }
         }
