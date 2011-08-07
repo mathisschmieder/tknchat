@@ -248,7 +248,7 @@ int main(int argc, char** argv) {
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
             } else if (uc_packet.type == LEAVE_GROUP) { //only null-data packet on unicast is LEAVE_GROUP 
-              poutput(" >>> %s left the building\n", browselist[atoi(mc_packet.data)].name);
+              poutput(" >>> %s left the building\n", browselist[i].name);
               browselistlength = removeFromBrowseList(i);
               if (appl_state == I_AM_MASTER) { //inform other clients of the part
                 char partindex[3];
@@ -784,12 +784,16 @@ int send_unicast(int type, char* data) {
   int returnvalue;
   returnvalue = 0;
 
-  for (int i = 0; i < MAX_MEMBERS; i++) {
-    if ((browselist[i].socket > 0) //dont send to empty sockets
-        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
-      returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
-        pdebug("socket: %d\n", browselist[i].socket);
-        pdebug("sending data: %s\n", data);
+  if ( type == LEAVE_GROUP )
+    returnvalue = send(browselist[0].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
+  else {
+    for (int i = 0; i < MAX_MEMBERS; i++) {
+      if ((browselist[i].socket > 0) //dont send to empty sockets
+          && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
+        returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
+          pdebug("socket: %d\n", browselist[i].socket);
+          pdebug("sending data: %s\n", data);
+      }
     }
   }
 
@@ -1031,14 +1035,14 @@ int receive_BrowseListItem(char* data) {
 // Exit function
 void close_chat() {
   poutput(" >> quitting chat\n");
-  // Close all connections by resetting browselist
-  reset_browselist(); 
-
   // Tell the group that we are leaving
   if (appl_state == I_AM_MASTER)
     send_multicast(LEAVE_GROUP_MASTER, NULL);
   else
     send_unicast(LEAVE_GROUP, NULL);
+
+  // Close all connections by resetting browselist
+  reset_browselist(); 
 
   // Close multicast socket
   close(sd);
