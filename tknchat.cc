@@ -293,11 +293,17 @@ int main(int argc, char** argv) {
           //remove client from browselist
           removeFromBrowseList(atoi(mc_packet.data));
         }
-        if ( setup_unicast() < 0) {
-          pdebug("error setting up unicast connections, requesting new browse list");
-          reset_browselist();
-          maxreq = 6;
-          setNewState(STATE_MASTER_FOUND);
+        //removed unicast setup for debugging
+       // if ( setup_unicast() < 0) {
+       //   pdebug("error setting up unicast connections, requesting new browse list");
+       //   reset_browselist();
+       //   maxreq = 6;
+       //   setNewState(STATE_MASTER_FOUND);
+       // }
+       // print broweselist instead
+        printf("browselist length: %d\n", browselistlength);
+        for (int i = 0; i < browselistlength; i++) {
+          printf("%d: %s\n", i, browselist[i].name);
         }
         break;
 
@@ -309,9 +315,6 @@ int main(int argc, char** argv) {
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
           //TODO better handling of waiting time until the new master is ready
           maxreq = 5;
-          // reset browse list
-          reset_browselist(); 
-
           setNewState(STATE_MASTER_FOUND);
           break;
         }
@@ -365,7 +368,6 @@ int main(int argc, char** argv) {
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
             //TODO better handling of waiting time until the new master is ready 
-            reset_browselist();
             setNewState(STATE_MASTER_FOUND);
             break;
           }
