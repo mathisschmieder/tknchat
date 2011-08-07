@@ -535,7 +535,7 @@ int init_fdSet(fd_set* fds) {
   // add unicast connections
   for (int i = 0; i < MAX_MEMBERS; i++) 
     if (browselist[i].socket > 0) {
-      printf("adding %d to fdset\n", i); 
+      printf("adding %d to fdset\n", browselist[i].socket); 
       FD_SET(browselist[i].socket, fds);
     }
 }
