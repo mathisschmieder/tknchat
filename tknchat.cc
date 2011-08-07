@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
         send_unicast(DATA_PKT,buffer);
       }
       for (int i = 0; i < MAX_MEMBERS; i++) {
-        if (browselist[i].socket != 0) {
+        if (browselist[i].socket > 0) {
           if (FD_ISSET(browselist[i].socket, &rfds)) {
             #ifdef DEBUG
               printf("receiving data\n");
@@ -529,7 +529,7 @@ int init_fdSet(fd_set* fds) {
   FD_SET(s, fds);
   // add unicast connections
   for (int i = 0; i < MAX_MEMBERS; i++) 
-    if (browselist[i].socket != 0) 
+    if (browselist[i].socket > 0) 
       FD_SET(browselist[i].socket, fds);
 }
 
@@ -659,7 +659,7 @@ int send_unicast(int type, char* data) {
   returnvalue = 0;
 
   for (int i = 0; i < MAX_MEMBERS; i++) {
-    if ((browselist[i].socket != 0) //dont send to empty sockets
+    if ((browselist[i].socket > 0) //dont send to empty sockets
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
       returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
       #ifdef DEBUG
