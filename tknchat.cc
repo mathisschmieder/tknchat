@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
               masterdelay = 6; //reset browselist and wait 3 empty cycles until sending out new browselist
             } else {
               printf("force-closing socket %d\n", browselist[i].socket);
-              close(browselist[i].socket);
+              removeFromBrowseList(i);
             }
           }
         }
@@ -538,6 +538,8 @@ int init_fdSet(fd_set* fds) {
       printf("adding %d to fdset\n", browselist[i].socket); 
       FD_SET(browselist[i].socket, fds);
     }
+  int maxfd=sysconf(_SC_OPEN_MAX);
+  printf("maxfd: %d\n",maxfd);
 }
 
 // Function to setup multicast communication
