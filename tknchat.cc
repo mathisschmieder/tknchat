@@ -293,13 +293,12 @@ int main(int argc, char** argv) {
           //remove client from browselist
           removeFromBrowseList(atoi(mc_packet.data));
         }
-        //removed unicast setup for debugging
-       // if ( setup_unicast() < 0) {
-       //   pdebug("error setting up unicast connections, requesting new browse list");
-       //   reset_browselist();
-       //   maxreq = 6;
-       //   setNewState(STATE_MASTER_FOUND);
-       // }
+        if ( setup_unicast() < 0) {
+          pdebug("error setting up unicast connections, requesting new browse list");
+          reset_browselist();
+          maxreq = 6;
+          setNewState(STATE_MASTER_FOUND);
+        }
        // print broweselist instead
         printf("browselist length: %d\n", browselistlength);
         for (int i = 0; i < browselistlength; i++) {
