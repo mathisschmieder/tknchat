@@ -373,6 +373,7 @@ int main(int argc, char** argv) {
         else if ((mc_packet.type == BROWSE_LIST)) {
           receive_BrowseListItem(mc_packet.data);
         } else if (mc_packet.type == LEAVE_GROUP) {
+          pdebug(" removing client\n");
           //remove client from browselist
           removeFromBrowseList(atoi(mc_packet.data));
         }
