@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
                 send_multicast(LEAVE_GROUP, partindex); 
               }
             } else {
-              pdebug(" strange NULL-packet received\n");
+              pdebug(" strange NULL-packet received on %d, type %d\n", i, uc_packet.type);
             }
           }
         }
