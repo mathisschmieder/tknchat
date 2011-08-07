@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
 
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               printf("%s>> %s\n", browselist[i].name, uc_packet.data);
-            } else if (appl_state == I_AM_MASTER) { //only null-data packet on unicast is LEAVE_GROUP 
+            } else if ((appl_state == I_AM_MASTER) && (uc_packet.type == LEAVE_GROUP) ) { //only null-data packet on unicast is LEAVE_GROUP 
               printf("received null data, assuming client leave\n");
               removeFromBrowseList(i);
               //inform other clients of the part
