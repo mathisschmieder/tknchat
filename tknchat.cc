@@ -83,6 +83,11 @@ int main(int argc, char** argv) {
     exit(0);
   #endif
 
+  //initialize browselist
+  for (int i = 0; i < MAX_MEMBERS; i++) {
+    browselist[i].socket == -1;
+  }
+
   // Multicast packet
   local_packet mc_packet;
   for (;;) { // main loop
