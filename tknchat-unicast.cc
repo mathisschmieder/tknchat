@@ -374,8 +374,8 @@ int main(int argc, char** argv) {
         else if ((mc_packet.type == BROWSE_LIST)) {
           receive_BrowseListItem(mc_packet.data);
         } else if (mc_packet.type == LEAVE_GROUP) {
-          pdebug(" removing client\n");
           //remove client from browselist
+          poutput(" >>> %s left the building\n", browselist[atoi(mc_packet.data)].name);
           removeFromBrowseList(atoi(mc_packet.data));
         }
         if ( setup_unicast() < 0) {
