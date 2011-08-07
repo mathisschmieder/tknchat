@@ -841,7 +841,7 @@ int receive_BrowseListItem(char* data) {
   strncpy(iplength, strtok(NULL, ","), 16);
   strncpy(ip, strtok(NULL, ","), 16);
 
-  browselistlength == atoi(bllength);
+  browselistlength = atoi(bllength);
   printf("new browselist length: %d\n", browselistlength);
 
   // if index is 0 then we are about to receive a new browselist
