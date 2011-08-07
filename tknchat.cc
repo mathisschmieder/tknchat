@@ -788,7 +788,7 @@ void removeFromBrowseList(int i) {
 
   memset(browselist[i].name, 0, strlen(browselist[i].name));
   memset(browselist[i].ip, 0, strlen(browselist[i].ip));
-   if ( browselist[i].socket != 0) {
+   if ( browselist[i].socket != -1) {
 #ifdef DEBUG
     printf("closing socket %d\n", i);
 #endif
