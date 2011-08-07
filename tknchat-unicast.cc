@@ -247,13 +247,15 @@ int main(int argc, char** argv) {
 
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
-            } else { //only null-data packet on unicast is LEAVE_GROUP 
+            } else if (uc_packet.type == LEAVE_GROUP) { //only null-data packet on unicast is LEAVE_GROUP 
               browselistlength = removeFromBrowseList(i);
               if (appl_state == I_AM_MASTER) { //inform other clients of the part
                 char partindex[3];
                 sprintf(partindex, "%d", i);
                 send_multicast(LEAVE_GROUP, partindex); 
               }
+            } else {
+              pdebug(" strange NULL-packet received\n");
             }
           }
         }
