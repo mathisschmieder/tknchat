@@ -610,7 +610,7 @@ int setup_unicast() {
   int newsock;
   struct sockaddr_in options;
   for (int i = 0; i < 1; i++) {
-    if ((browselist[i].socket == 0) 
+    if ((browselist[i].socket == -1) 
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) // this should be obsolete
         && (strncmp(browselist[i].ip, "", INET_ADDRSTRLEN) != 0)) {               // so should this
       #ifdef DEBUG
@@ -623,8 +623,6 @@ int setup_unicast() {
       }
 
       options.sin_addr.s_addr = inet_addr(browselist[i].ip);
-      // TODO URGENT
-      // is it even possible for several clients to connect on the same port?
       options.sin_port = htons(UC_DATA_PORT);
       options.sin_family = AF_INET;
       if (connect(newsock, (struct sockaddr *)&options, sizeof(options)) < 0) {
@@ -796,7 +794,7 @@ void removeFromBrowseList(int i) {
 #endif
     close(browselist[i].socket);
     printf("POINT3 socket\n");
-    browselist[i].socket = 0;
+    browselist[i].socket = -1;
   }
 }
 
