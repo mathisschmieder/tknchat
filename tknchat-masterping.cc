@@ -24,6 +24,7 @@ struct timeval globalTimer;
 int OS_Level = 0;
 int maxreq;
 int alive_req;
+int alive_timeout;
 int masterdelay;
 
 // Communication
@@ -156,8 +157,8 @@ int main(int argc, char** argv) {
   pthread_t t1;
   poutput("thread starting\n");
   if ( pthread_create(&t1, NULL, get_input, (void *)" execute task 1\n") != 0 ) {
-    poutput("pthread_create() error");
-    abort();
+    pdebug("pthread_create() error\n");
+    close_chat();
   }
 
   //int count = 0;
@@ -175,7 +176,9 @@ int main(int argc, char** argv) {
     // there is data available
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
     // Abort execution if select terminated with an error
-    assert(retval >= 0);
+    //assert(retval >= 0);
+    if ( retval < 0 ) 
+      pdebug(" RETVAL < 0!\n");
 
     //clearing last states multicast packet
     mc_packet.type = (int)NULL;
@@ -348,42 +351,49 @@ int main(int argc, char** argv) {
         // TODO nice way of handling master dropouts
         // Trying to periodically refresh browselist 
         // and see if master is still there
-
-        if ( mc_packet.type == (int)NULL ) { //if there is no data, increment alive_req to check if the master still lives
+        
+        // If there is no data, increment alive_req to check if the master still lives
+        if ( mc_packet.type == (int)NULL ) { 
           if (alive_req < 25) {
             alive_req++;
           } else {
             pdebug(" master dead!\n");
             setNewState(STATE_FORCE_ELECTION);
           }
-        } else if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen == 0)) { //master ping, respond to it with a control packet and our ip
+        } 
+        // Master ping, respond with a control packet including our ip
+        else if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen == 0)) { 
           alive_req = 0;
           pdebug(" master alive\n");
           send_multicast(CTRL_PKT, inet_ntoa(localip));
-        } else if (mc_packet.type == GET_MEMBER_INFO) { //master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
+        } 
+        // e: rcvd_get_member_info
+        // a: send_set_member_info
+        // s: STATE_MASTER_FOUND
+        else if (mc_packet.type == GET_MEMBER_INFO) { 
           maxreq = 6; //possible FIXME for segfaults
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
-          //TODO better handling of waiting time until the new master is ready <- this still necessary? 
           reset_browselist();
           setNewState(STATE_MASTER_FOUND);
-        } else if (mc_packet.type == LEAVE_GROUP_MASTER) {
+        } 
+        // e: rcvd_leave_group_master
+        // a: send_force_election
+        // s: STATE_FORCE_ELECTION
+        else if (mc_packet.type == LEAVE_GROUP_MASTER) {
           maxreq = 5;
           send_multicast(STATE_FORCE_ELECTION, NULL);
           setNewState(STATE_FORCE_ELECTION);
         }
         // e: rcvd_browse_list
-        // e: rcvd_leaved
         // a: manage_member_list
         else if ((mc_packet.type == BROWSE_LIST)) {
           reset_browselist();
           receive_BrowseListItem(mc_packet.data);
-          // TODO differs from state tree diagram
-          // should stay in this state
-          // mathis: true, but it does break stuff!
-          // maxreq = 5;
-          // setNewState(STATE_MASTER_FOUND);
-        } else if (mc_packet.type == LEAVE_GROUP) {
+        }
+        // e: rcvd_leaved
+        // a: manage_member_list
+        else if (mc_packet.type == LEAVE_GROUP) {
           //remove client from browselist
           removeFromBrowseList(atoi(mc_packet.data));
         }
@@ -428,30 +438,31 @@ int main(int argc, char** argv) {
       case STATE_I_AM_MASTER:
         // Have we received a multicast packet?
         if ( mc_packet.type == (int)NULL ) { 
-          if (masterdelay > 1)
-            pdebug(" masterdelay: %d\n", masterdelay);
-            masterdelay--;
+          // Now we are the master
           if (masterdelay == 5) {
-            pdebug(" adding myself\n");
-            // Now we are the master
-            masterdelay--; 
             // Initialize BrowseList
             reset_browselist();
+            pdebug(" adding myself\n");
             addToBrowseList(inet_ntoa(localip), browselistlength++);
             // Ask all clients for their credentials
-            //send_multicast(BROWSE_LIST, 
             send_multicast(GET_MEMBER_INFO,NULL); 
-          } else if (masterdelay == 1) {
+          }
+          if (masterdelay > 1) {
+            pdebug(" masterdelay: %d\n", masterdelay);
+            masterdelay--; 
+          }
+          else if (masterdelay == 1) {
             //the clients had enough time to send us their infos, now we send out the browselist
             for (int i = 0; i < browselistlength; i++) {
               pdebug(" Sending browselistentry %d", i);
               send_BrowseListItem(i);
               masterdelay = 0;
             }
-          }
-        } else {
-            // e: rcvd_master_level greater than mine
-            // a: am_I_the_Master? No
+          } 
+        }
+        else {
+          // e: rcvd_master_level greater than mine
+          // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
             //TODO better handling of waiting time until the new master is ready 
@@ -484,15 +495,16 @@ int main(int argc, char** argv) {
           } 
         }
 
-        if (maxreq > 0) {
-          maxreq--;
+        if (alive_timeout > 0) {
+          alive_timeout--;
           if (alive_req > 1) {
             if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen > 0)) {
               alive_req--;
+              pdebug(" received signal from a slave, %d-1 left\n", alive_req);
             }
           }
           // All slaves replied
-          else if (alive_req == 1) {
+          if (alive_req == 1) {
             alive_req = 0;
             pdebug(" all slaves alive\n");
           }
@@ -502,13 +514,13 @@ int main(int argc, char** argv) {
             pdebug(" slave dead!\n");
             // TODO best way to handle this?
             alive_req = 0;
-            maxreq = 10;
+            maxreq = 5;
             masterdelay = 6;
           }
           else {
-            maxreq = 10;
+            alive_timeout = 15;
             alive_req = browselistlength;
-            pdebug(" master ping!\n");
+            pdebug(" master ping, waiting for %d-1 slaves\n", alive_req);
             send_multicast(CTRL_PKT, NULL);
           }
         }
@@ -674,12 +686,6 @@ int init_fdSet(fd_set* fds) {
       FD_SET(browselist[i].socket, fds);
 }
 
-// Function to setup internal socket for
-// input handling
-int setup_input() {
-  si = socket(AF_UNIX, SOCK_STREAM, 0);
-}
-
 // Function to setup multicast communication
 int setup_multicast() {
   int sd;
@@ -806,8 +812,8 @@ int send_unicast(int type, char* data) {
     if ((browselist[i].socket != 0) //dont send to empty sockets
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
       returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
-        pdebug("socket: %d\n", browselist[i].socket);
-        pdebug("sending data: %s\n", data);
+        pdebug(" socket: %d\n", browselist[i].socket);
+        pdebug(" sending data: %s\n", data);
     }
   }
 
@@ -815,9 +821,6 @@ int send_unicast(int type, char* data) {
 }
 
 // Function to set a new state on the StateMachine
-void setNewState() {
-  
-}
 void setNewState(int state) {
   appl_state = state;
 
@@ -836,6 +839,8 @@ void setNewState(int state) {
       strncpy(cstate, "[NO_MASTER]", 18);
       break;
     case STATE_I_AM_MASTER:
+      alive_timeout = 15;
+      alive_req = 0;
       strncpy(cstate, "[I_AM_MASTER]", 18);
       break;
     case STATE_ELECTION:
