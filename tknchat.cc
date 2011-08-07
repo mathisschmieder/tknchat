@@ -604,7 +604,7 @@ int setup_unicast_listen() {
 int setup_unicast() {
   int newsock;
   struct sockaddr_in options;
-  for (int i = 0; i < 1; i++) {
+  for (int i = 0; i < localindex; i++) {
     if ((browselist[i].socket == 0) 
         && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) // this should be obsolete
         && (strncmp(browselist[i].ip, "", INET_ADDRSTRLEN) != 0)) {               // so should this
