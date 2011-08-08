@@ -7,73 +7,41 @@
 **
 ** Mathis Schmieder - 316110
 ** Konstantin Koslowski - 316955
+**
+** Source file
 */
 
+// Include the header file
 #include "tknchat.h"
 
-// Options for argument parsing
-int option_index = 0;
-const char* eth = NULL; 
-
-// Define our file descriptor set
-fd_set rfds;
-
-// State machine
-int appl_state = STATE_NULL;
-struct timeval globalTimer;
-int OS_Level = 0;
-int maxreq;
-int alive_req;
-int masterdelay;
-
-// Communication
-int retval;
-char buf[MAX_MSG_LEN];
-int seqno;
-int browselistlength = 0;
-char host[1024];
-in_addr localip;
-int localindex = -1;
-
-// Character input
-int ch;
-char input[80];
-int input_set;
-  
-// Windows
-// output
-int output_xstart, output_ystart, output_width, output_height;
-int output_xpos, output_ypos;
-// input
-int input_xstart, input_ystart, input_width, input_height;
-int input_xpos, input_ypos;
-int state_xpos, state_ypos;
-// debug
-int debug_xstart, debug_ystart, debug_width, debug_height;
-
-WINDOW *debug_win, *output_win, *input_win;
-
-// The main method
+/* The main method
+ *
+ * Arguments:
+ * int argc: number of arguments passed at program start
+ * char** argv: character array of arguments
+ * 
+ * Return value:
+ * int: >=0 on successfull termination, -1 on malicious termination
+ *      This is unused and mainly here to make gcc happy
+ */
 int main(int argc, char** argv) {
   // Parse arguments from the command line
   parse_options(argc, argv);
 
   // Create ncurses user interface
-  //WINDOW *output_win, *input_win;
   initscr();
   noecho();
-  //cbreak();
   raw();
   // Hide cursor
   curs_set(0);
   // I need F1
-  // TODO do i?
+  // TODO do i? @konni
   keypad(stdscr, TRUE);   
   
   // never forget
   refresh();
 
-  // Debug window
+  // Debug window - this will only be displayed if compiled with -DDEBUG
   debug_xstart = 0;
   debug_ystart = 0;
   #ifdef DEBUG
@@ -85,7 +53,6 @@ int main(int argc, char** argv) {
   debug_win = create_newwin(debug_height, debug_width, debug_ystart, debug_xstart, 1);
 
   scrollok(debug_win, true);
-  //idlok(debug_win, true);
   wrefresh(debug_win);
 
   // Output window
@@ -96,7 +63,6 @@ int main(int argc, char** argv) {
   output_win = create_newwin(output_height, output_width, output_ystart, output_xstart, 1);
 
   scrollok(output_win, true);
-  //idlok(output_win, true);
   wrefresh(output_win);
 
   // Input window
@@ -109,7 +75,6 @@ int main(int argc, char** argv) {
   wrefresh(input_win);
 
   // Define cursor
-
   int output_xpos = output_xstart+1;
   int output_ypos = output_ystart+1;
 
@@ -117,29 +82,27 @@ int main(int argc, char** argv) {
   memset(input, 0, 80);
   input_set = 0;
 
-  // Multicast packet
-  local_packet mc_packet;
+  // OS_Level generation 
+  srand( time(NULL) ); // Initialize the random seed using current time
+  OS_Level = rand() % 65535 + 1; // Set OS_Level to a random value between 1 and 65535
 
-  // TODO maybe take a better seed
-  srand( time(NULL) ); 
-  OS_Level = rand() % 65535 + 1;
-
-  host[1023] = '\0';
-  gethostname(host, 1023);
-
+  // Set the interface for all unicast communication. Defaults to eth0 and may be specified via programm argument -i
   if (eth == NULL) 
     eth = "eth0"; 
 
+  // Get our local IP
   localip = getIP(eth);
 
+  // Set up multicast and incoming unicast sockets
   sd = setup_multicast();
   s = setup_unicast_listen();
+  // And add them to the file descriptor set
   init_fdSet(&rfds);
 
-  //globalTimer.tv_sec = 1;
-  //globalTimer.tv_usec = 0;
+  // Initialize the global timer to 1 second
   setGlobalTimer(1,0);
 
+  // Set the retry counter to 5
   maxreq = 5;
 
   #ifdef DEBUG
@@ -148,80 +111,67 @@ int main(int argc, char** argv) {
 
 
   // Open thread for input
-
   pthread_t t1;
   poutput("thread starting\n");
   if ( pthread_create(&t1, NULL, get_input, (void *)" execute task 1\n") != 0 ) {
     poutput("pthread_create() error");
     abort();
   }
-
-  //int count = 0;
-  //while (true) {
-  //  count++;
-  //  pdebug(" debug %d\n", count);
-  //  poutput(" output %d\n", count);
-  //  sleep(1);
-  //  //usleep(500000);
-  //}
-
+  
   for (;;) { // main loop
     // READ FROM SOCKETS 
     // select monitors the file descriptors in fdset and returns a positive integer if
     // there is data available
     retval = select(sizeof(&rfds)*8, &rfds, NULL, NULL, (struct timeval*)&globalTimer);
-    // Abort execution if select terminated with an error
-    //assert(retval >= 0);
+    
+    // select() should always return a value greater or equal to 0
+    // If the return value is <0 a socket got bad and the program should be quit
+    // Ideally this should never happen!
     if (retval  < 0) {
-      pdebug(" something horrible happened\n");
-      pdebug(" current browselistlength: %s\n", browselistlength);
-      for (int i = 0; i < browselistlength; i++) {
-        pdebug(" index: %d, name: %s, socket %d\n", i, browselist[i].name, browselist[i].socket);
-      }
+      pdebug(" something really horrible happened, closing the chat.\n");
+      poutput(" This is embarrassing. Force-closing the chat\n");
+      close_chat();
     }
 
-    //clearing last states multicast packet
+    // Clearing and initializing multicast packet
     mc_packet.type = (int)NULL;
     memset(mc_packet.data, 0, strlen(mc_packet.data));
 
 
     // Get data from sockets 
     if (retval > 0) {
-      if (FD_ISSET(sd, &rfds)) {
+      if (FD_ISSET(sd, &rfds)) { // Is there data on the incoming unicast port?
         packet mc_recv;
-        memset(mc_recv.data, 0, strlen(mc_recv.data));
-        recv(sd, &mc_recv, sizeof(mc_recv), 0);
+        memset(mc_recv.data, 0, strlen(mc_recv.data));  // Initialize and clear mc_recv
+        recv(sd, &mc_recv, sizeof(mc_recv), 0);         // and receive data
 
-        mc_packet = receive_packet(mc_recv);
+        mc_packet = receive_packet(mc_recv); // Decode raw data into local_packet struct
       } else if (FD_ISSET(s, &rfds)) {
-        //we have a new visitor aka data on unicast listening socket
+        // We have a new visitor aka data on unicast listening socket
         int newsock, cli_len, valid;
         struct sockaddr_in client;
         cli_len = sizeof(client);
         valid = 0;
+        // accept() accepts a connection to a local, passive open socket and returns an active open one
         newsock = accept(s, (sockaddr *)&client, (socklen_t *)&cli_len);
 
         pdebug(" incoming unicast connection from %s\n", inet_ntoa(client.sin_addr));
       
-        //find out where the connection came from
-        for (int i = 0; i < MAX_MEMBERS; i++) {
-          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) {
-            browselist[i].socket = newsock;
+        // Scan the browse list and compare the new connection's source to all known clients
+        // We will only accept connections from known members
+        for (int i = 0; i < browselistlength; i++) { // TODO MAX_MEMBERS -> browselistlength - lets hope it didnt break anything
+          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) { // We found the source's IP in the browse list
+            browselist[i].socket = newsock; // Accept and save active socket
             valid = 1;
-            break;
+            break; // End for-loop
           }
         }
-        if (valid == 0) {
+        if (valid == 0) { // Source's IP couldn't be found in the browse list, disconnecting
           pdebug("closing non-authorized unicast connection\n");
-      pdebug(" current browselistlength: %s\n", browselistlength);
-      for (int i = 0; i < browselistlength; i++) {
-        pdebug(" index: %d, name: %s, socket %d\n", i, browselist[i].name, browselist[i].socket);
-      }
-
           close(newsock);
         }
       } 
-      for (int i = 0; i < MAX_MEMBERS; i++) { //TODO shouldnt this be browselist?
+      for (int i = 0; i < browselistlength; i++) { 
         if (browselist[i].socket > 0) {
           if (FD_ISSET(browselist[i].socket, &rfds)) {
             local_packet uc_packet;
@@ -253,7 +203,7 @@ int main(int argc, char** argv) {
     } 
 
     if (input_set == 1) {
-      poutput(" <%s> %s\n", host, input);
+      poutput(" <%s> %s\n", browselist[localindex].name, input);
       send_unicast(DATA_PKT,input);
       memset(input, 0, 80);
       input_set = 0;
