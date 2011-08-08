@@ -154,7 +154,7 @@ WINDOW *debug_win, *output_win, *input_win;
 
 // Definition of all functions - you find the explanations in the source file
 in_addr getIP(const char*);
-int init_fdSet(fd_set*);
+void init_fdSet(fd_set*);
 int setup_multicast();
 int setup_unicast_listen();
 int setup_unicast();
