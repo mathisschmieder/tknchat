@@ -335,8 +335,7 @@ int main(int argc, char** argv) {
           break;
         }
         // e: Timeout or rcvd_master_level < mine 
-        // a: send_I_am_Master 
-        // a: send_get_member_info
+        // a: Assume we are master but wait a little more before we publish it 
         else {
           // Create char to hold the OS_LEVEL (8 digits plus \0)
           char char_OS_Level[sizeof(OS_Level)*8+1];
@@ -346,7 +345,7 @@ int main(int argc, char** argv) {
           pdebug(" assuming I am master\n");
           maxreq = 5;
           setNewState(STATE_I_AM_MASTER);
-          // Wait 3 cycles until we are sure that we are the master
+          // Wait a couple of cycles until we are sure that we are the master
           masterdelay = 8; 
         }
         break;
@@ -355,23 +354,25 @@ int main(int argc, char** argv) {
         // Have we received a multicast packet?
         if ( mc_packet.type == (int)NULL ) { 
           if (masterdelay > 1)
-            pdebug(" masterdelay: %d\n", masterdelay);
             masterdelay--;
           if (masterdelay == 5) {
-            // Now we are the master
+            // 8-5=3 cycles without data
+            // We can safely assume that we are the master 
             masterdelay--; 
             // Initialize BrowseList
             reset_browselist();
-            pdebug(" adding myself\n");
+            // Add ourselves to the browse list
             browselistlength = addToBrowseList(inet_ntoa(localip));
             // Ask all clients for their credentials
-            //send_multicast(BROWSE_LIST, 
             send_multicast(GET_MEMBER_INFO,NULL); 
           } else if (masterdelay == 1) {
-            //the clients had enough time to send us their infos, now we send out the browselist
+            // 4-1=3 cycles without data
+            // We can safely assume that all members have sent their info
+            // Send out the new browse list
             for (int i = 0; i < browselistlength; i++) {
               pdebug(" Sending browselistentry %d\n", i);
               send_BrowseListItem(i);
+              // Prevent the master from re-requesting and resending all data
               masterdelay = 0;
             }
           }
@@ -380,7 +381,6 @@ int main(int argc, char** argv) {
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
-            //TODO better handling of waiting time until the new master is ready 
             reset_browselist();
             setNewState(STATE_MASTER_FOUND);
             break;
@@ -388,7 +388,8 @@ int main(int argc, char** argv) {
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
-            masterdelay = 0; //prevent sending the browselist a second time later on
+            // Prevent sending the browselist a second time later on without being asked to
+            masterdelay = 0; 
             for (int i = 0; i < browselistlength; i++) {
               pdebug(" sending browselistentry %d\n", i);
               send_BrowseListItem(i);
@@ -397,6 +398,9 @@ int main(int argc, char** argv) {
           // e: rcvd_set_member_info
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
+            // Declare a char array for the received IP
+            // There may be garbage behind the IP in the received data
+            // Only copy mc_packet.datalen chars to eliminate garbage
             char receivedip[INET_ADDRSTRLEN];
             memset(receivedip, 0, INET_ADDRSTRLEN);
             strncpy(receivedip, mc_packet.data, mc_packet.datalen);
@@ -410,53 +414,32 @@ int main(int argc, char** argv) {
             strncpy(receivedip, mc_packet.data, mc_packet.datalen);
             browselistlength = addToBrowseList(receivedip);
             send_multicast(I_AM_MASTER, NULL);
-          } else if ( mc_packet.type == FORCE_ELECTION ) {
+          } 
+          // e: rcvd_force_election
+          // Clear browse list and go into election state
+          else if ( mc_packet.type == FORCE_ELECTION ) {
+            reset_browselist();
             setNewState(STATE_FORCE_ELECTION);
           } 
         }
-
-        // FIXME
-
-       // if (maxreq > 0) {
-       //   maxreq--;
-       //   if (alive_req > 1) {
-       //     if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen > 0)) {
-       //       alive_req--;
-       //     }
-       //   }
-       //   // All slaves replied
-       //   else if (alive_req == 1) {
-       //     alive_req = 0;
-       //     pdebug(" all slaves alive\n");
-       //   }
-       // }
-       // else {
-       //   if (alive_req > 0) {
-       //     pdebug(" slave dead!\n");
-       //     // TODO best way to handle this?
-       //     alive_req = 0;
-       //     maxreq = 10;
-       //     masterdelay = 6;
-       //   }
-       //   else {
-       //     maxreq = 10;
-       //     alive_req = browselistlength;
-       //     pdebug(" master ping!\n");
-       //     send_multicast(CTRL_PKT, NULL);
-       //   }
-       // }
         break;
     }
+    // Re-Initialize file descriptor set, refresh timer and output window
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
     wrefresh(output_win);
   }
+  // The loop should never close, but if it does, exit the program cleanly
   close_chat();
   return 0;
 }
 
-// Function to output debug messages
-// when the DEBUG option is set
+/* Function to output debug messages to ncurses thread
+ * when the DEBUG option is set
+ *
+ * Arguments
+ * const char* fmt: Message to display, same syntax as printf()
+ */
 void pdebug(const char* fmt, ...) {
   #ifdef DEBUG
     va_list ap;
@@ -469,6 +452,11 @@ void pdebug(const char* fmt, ...) {
 
 }
 
+/* Function to output main data to ncurses thread
+ *
+ * Arguments
+ * const char* fmt: Message to display, same syntax as printf()
+ */
 void poutput(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -478,6 +466,11 @@ void poutput(const char* fmt, ...) {
     wrefresh(output_win);
 }
 
+/* Function to get input from ncurses thread
+ *
+ * TODO @konni
+ *
+ */
 void *get_input(void *arg) {
   int index = 0;
   char local_input[80];
@@ -539,7 +532,7 @@ void *get_input(void *arg) {
         wrefresh(input_win);
       }
     }
-    // frequently used characters and umlaute
+    // frequently used characters and umlauts
     else if (( ch >= 32) && (ch <= 126)) {
       local_input[index++] = ch;
       mvwaddch(input_win, input_ypos, input_xpos, ch);
@@ -555,15 +548,13 @@ void *get_input(void *arg) {
   return NULL;
 }
 
-
 // Function to output program version
 void version() 
 {
-  // TODO git version?
-  printf("tknchat v0.5-schlagmichtot\n");
+  printf("tknchat v0.9\n");
 }
 
-// Function for basic help
+// Function to output basic help
 void usage()
 {
   printf("usage:\n");
@@ -572,7 +563,12 @@ void usage()
   printf(" -i --interface\t set primary interface (default eth0)\n");
 }
 
-// Function for parsing and handling command line arguments 
+/* Function for parsing program arguments
+ *
+ * Arguments
+ * int argc: Number of arguments
+ * char** argv: Array with arguments
+ */
 void parse_options(int argc, char** argv) {
   int ret;
   
@@ -594,36 +590,53 @@ void parse_options(int argc, char** argv) {
     }
 }
 
-// Function to get own IP adress
+/* Function to get an interface's IP address
+ *
+ * Arguments
+ * const char* eth: Linux network interface name
+ *
+ * Return Value
+ * in_addr sin_addr: Interface's IP address in struct in_addr format
+ */
 in_addr getIP(const char* eth) {
   struct ifaddrs * ifAddrStruct=NULL;
   struct ifaddrs * ifa=NULL;
   struct sockaddr_in * sockaddr;
 
+  // Get all available network interfaces as a linked list
   getifaddrs(&ifAddrStruct);
  
+  // Traverse linked list and search for correct interface
   for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-    if ((ifa->ifa_addr != NULL) && (ifa->ifa_addr->sa_family==AF_INET) && (strcmp(ifa->ifa_name, eth) == 0)) {
+    if ((ifa->ifa_addr != NULL) 
+        // We only use IPv4
+        && (ifa->ifa_addr->sa_family==AF_INET) 
+        && (strcmp(ifa->ifa_name, eth) == 0)) {
         sockaddr = (struct sockaddr_in *)(ifa->ifa_addr);
        break;
     }
   }
+  // Free memory allocated by getifaddrs()
   freeifaddrs(ifAddrStruct);
 
   return sockaddr->sin_addr;
 }
 
-// Function to initialize the file descriptor set
-int init_fdSet(fd_set* fds) {
+/* Function to initialize file descriptor set
+ *
+ * Arguments
+ * fd_set* fds: file descriptor set to initialize
+ */
+void init_fdSet(fd_set* fds) {
   // reset fds
   FD_ZERO(fds);
-  // add console 
-  // handled by ncurses now
-  //FD_SET(0, fds);
+  
   // add multicast 
   FD_SET(sd, fds);
+  
   // add unicast incoming port
   FD_SET(s, fds);
+  
   // add unicast connections
   for (int i = 0; i < MAX_MEMBERS; i++) 
     if (browselist[i].socket > 0) 
