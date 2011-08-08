@@ -180,8 +180,6 @@ int main(int argc, char** argv) {
             read(browselist[i].socket, &uc_recv, sizeof(uc_recv));
 
             uc_packet = receive_packet(uc_recv);
-            //printf("unicast received type: %d\n", uc_packet.type);
-            //printf("unicast received from: %s\n", browselist[i].name);
 
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
@@ -401,14 +399,19 @@ int main(int argc, char** argv) {
           // e: rcvd_set_member_info
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
-            // manage_member_list
-            browselistlength = addToBrowseList(mc_packet.data);
+            char receivedip[INET_ADDRSTRLEN];
+            memset(receivedip, 0, INET_ADDRSTRLEN);
+            strncpy(receivedip, mc_packet.data, mc_packet.datalen);
+            browselistlength = addToBrowseList(receivedip);
           } 
           // e: rcvd_searching_master
           // a: send_I_am_Master
           else if ( mc_packet.type == SEARCHING_MASTER ) {
+            char receivedip[INET_ADDRSTRLEN];
+            memset(receivedip, 0, INET_ADDRSTRLEN);
+            strncpy(receivedip, mc_packet.data, mc_packet.datalen);
+            browselistlength = addToBrowseList(receivedip);
             send_multicast(I_AM_MASTER, NULL);
-            browselistlength = addToBrowseList(mc_packet.data);
           } else if ( mc_packet.type == FORCE_ELECTION ) {
             setNewState(STATE_FORCE_ELECTION);
           } 
