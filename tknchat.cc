@@ -83,10 +83,13 @@ int main(int argc, char** argv) {
   input_set = 0;
 
   // OS_Level generation 
-  srand( time(NULL) ); // Initialize the random seed using current time
-  OS_Level = rand() % 65535 + 1; // Set OS_Level to a random value between 1 and 65535
+  // Initialize the random seed using current time
+  srand( time(NULL) ); 
+  // Set OS_Level to a random value between 1 and 65535
+  OS_Level = rand() % 65535 + 1; 
 
-  // Set the interface for all unicast communication. Defaults to eth0 and may be specified via programm argument -i
+  // Set the interface for all unicast communication. 
+  // Defaults to eth0 and may be specified via programm argument -i
   if (eth == NULL) 
     eth = "eth0"; 
 
@@ -118,7 +121,8 @@ int main(int argc, char** argv) {
     abort();
   }
   
-  for (;;) { // main loop
+  // Main Loop
+  for (;;) { 
     // READ FROM SOCKETS 
     // select monitors the file descriptors in fdset and returns a positive integer if
     // there is data available
@@ -128,7 +132,7 @@ int main(int argc, char** argv) {
     // If the return value is <0 a socket got bad and the program should be quit
     // Ideally this should never happen!
     if (retval  < 0) {
-      pdebug(" something really horrible happened, closing the chat.\n");
+      pdebug(" Something really horrible happened, closing the chat.\n");
       poutput(" This is embarrassing. Force-closing the chat\n");
       close_chat();
     }
@@ -141,12 +145,16 @@ int main(int argc, char** argv) {
     // Get data from sockets 
     if (retval > 0) {
       // FD_ISSET returns 1 if there is data to be received in the specified socket
-      if (FD_ISSET(sd, &rfds)) { // Is there data on the multicast socket?
+      if (FD_ISSET(sd, &rfds)) { 
         packet mc_recv;
-        memset(mc_recv.data, 0, strlen(mc_recv.data));  // Initialize and clear mc_recv
-        recv(sd, &mc_recv, sizeof(mc_recv), 0);         // and receive data
+        // Initialize and clear mc_recv...
+        memset(mc_recv.data, 0, strlen(mc_recv.data));  
+        // ...and receive data
+        recv(sd, &mc_recv, sizeof(mc_recv), 0);         
 
-        mc_packet = receive_packet(mc_recv); // Decode raw data into local_packet struct
+
+        // Decode raw data into local_packet struct
+        mc_packet = receive_packet(mc_recv); 
       } 
       else if (FD_ISSET(s, &rfds)) {
         // We have a new visitor aka data on unicast listening socket
@@ -154,21 +162,27 @@ int main(int argc, char** argv) {
         struct sockaddr_in client;
         cli_len = sizeof(client);
         valid = 0;
-        // accept() accepts a connection to a local, passive open socket and returns an active open one
+        // accept() accepts a connection to a local, passive open socket 
+        // and returns an active open one
         newsock = accept(s, (sockaddr *)&client, (socklen_t *)&cli_len);
 
         pdebug(" incoming unicast connection from %s\n", inet_ntoa(client.sin_addr));
       
         // Scan the browse list and compare the new connection's source to all known clients
         // We will only accept connections from known members
-        for (int i = 0; i < browselistlength; i++) { // TODO MAX_MEMBERS -> browselistlength - lets hope it didnt break anything
+        // TODO MAX_MEMBERS -> browselistlength - lets hope it didnt break anything
+        for (int i = 0; i < browselistlength; i++) { 
           if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) { // We found the source's IP in the browse list
-            browselist[i].socket = newsock; // Accept and save active socket
+            // Accept and save active socket
+            browselist[i].socket = newsock; 
             valid = 1;
-            break; // End for-loop
+            // End for-loop
+            break; 
           }
         }
-        if (valid == 0) { // Source's IP couldn't be found in the browse list, disconnecting
+
+        // Source's IP couldn't be found in the browse list, disconnecting
+        if (valid == 0) { 
           pdebug("closing non-authorized unicast connection\n");
           close(newsock);
         }
@@ -176,16 +190,22 @@ int main(int argc, char** argv) {
 
       // Check all member's sockets for data
       for (int i = 0; i < browselistlength; i++) { 
-        if (browselist[i].socket > 0) { // Only check on connected sockets
+        if (browselist[i].socket > 0) { 
+          // Only check on connected sockets
           if (FD_ISSET(browselist[i].socket, &rfds)) {
-            local_packet uc_packet; // Declare  local_packet packet
-            packet uc_recv;         // Declare raw packet
-            memset(uc_recv.data, 0, strlen(uc_recv.data)); // Memory gets reused so make sure there is no garbage left
-            read(browselist[i].socket, &uc_recv, sizeof(uc_recv)); // Read from unicast stream socket
+            // Declare  local_packet packet
+            local_packet uc_packet; 
+            // Declare raw packet
+            packet uc_recv;
+            // Memory gets reused so make sure there is no garbage left
+            memset(uc_recv.data, 0, strlen(uc_recv.data));
+            // Read from unicast stream socket
+            read(browselist[i].socket, &uc_recv, sizeof(uc_recv)); 
 
             uc_packet = receive_packet(uc_recv);
 
-            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) { // Receive chat message and display it
+            // Receive chat message and display it
+            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) { 
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
             } else if (uc_packet.type == LEAVE_GROUP) {
               poutput(" >>> %s has left the building\n", browselist[i].name);
