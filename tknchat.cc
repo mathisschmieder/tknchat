@@ -404,7 +404,11 @@ int main(int argc, char** argv) {
             char receivedip[INET_ADDRSTRLEN];
             memset(receivedip, 0, INET_ADDRSTRLEN);
             strncpy(receivedip, mc_packet.data, mc_packet.datalen);
-            browselistlength = addToBrowseList(receivedip);
+            // Append to browse list
+            // Return value is -1 if entry already present
+            int newbllength = addToBrowseList(receivedip);
+            if (newbllength > 0)
+              browselistlength = newbllength;
           } 
           // e: rcvd_searching_master
           // a: send_I_am_Master
@@ -792,12 +796,12 @@ int send_multicast(int type, char* data) {
   packet = create_packet(type, data);
   
   if ( data != NULL) {
-    //                                              + 6 Bytes (header) 
-    return sendto(sd, (char *)&packet, strlen(data) + 6, 0, (struct sockaddr*)&msock, sizeof(msock));
+    //                                              + 4 Bytes (header) 
+    return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
   }
   else
-    //                                 6 Bytes (header)
-    return sendto(sd, (char *)&packet, 6, 0, (struct sockaddr*)&msock, sizeof(msock));
+    //                                 4 Bytes (header)
+    return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
 /* Function to send data over unicast
@@ -906,6 +910,7 @@ packet create_packet(int type, char* data) {
   uint32_t header;
   uint16_t datalen;
 
+  // Clean packet.data from any possible memory garbage
   memset(packet.data, 0, MAX_MSG_LEN);
   // Only set datalen if there is data
   if (data != NULL) { 
@@ -914,40 +919,60 @@ packet create_packet(int type, char* data) {
   } else
     datalen = 0;
 
+  // Format the header into a bit field by bit shifting the integers
   // Headerformat
   // 32Bit = VERSION 2    TYPE 5      OPTIONS 1  SEQNO 8      DATALEN 16 
   header = (0x01 << 30)|(type << 25)|(0 << 24)|(seqno << 16)|(datalen);
+  // Transform bit field into network byte order for safe sending
   packet.header = htonl(header);
+
+  // Return packet struct, ready to be sent
   return packet;
 }
 
+/* Function to decode raw packet into local_packet struct
+ *
+ * Argument
+ * packet: Raw received packet
+ *
+ * Returns a local_packet struct filled with received data
+ */
 local_packet receive_packet(packet packet) {
   local_packet local_packet;
   uint32_t header;
 
+  // Convert header bit field back into local byte order
   header = ntohl(packet.header);
+  // Bit shift and mask bit field to retrieve original integers
   local_packet.version = (header >> 30) & 3;
   local_packet.type = (header >> 25) & 31;
   local_packet.options = (header >> 24) & 1;
   local_packet.seqno = (header >> 16) & 255;
   local_packet.datalen = header & 65535;
 
+  // Eliminate any memory garbage from local_packet struct
   memset(local_packet.data, 0, strlen(local_packet.data));
-  //pdebug(" Received packet, type: %d\n", local_packet.type);
 
+  // Only copy data if there is data present
   if (local_packet.datalen != 0) {
     strncpy(local_packet.data, packet.data, sizeof(packet.data));
   }
 
+  // Return local_packet struct
   return local_packet;
 }
 
-// Function to add a client to the BrowseList
+/* Function to add an entry to a specific browse list position
+ *
+ * Arguments
+ * char* clientip: IP of the client
+ * int i: Position in the browse list
+ */
 void addToBrowseList(char* clientip, int i) {
   pdebug(" adding item to browse list\n");
   int duplicate = 0;
-  // Check if item already exists in browselist
-  // starting with first slave
+
+  // Check if item already in browselist
   for (int index = 0; index < i + 1; index++) {
     if (!strcmp(browselist[index].ip,clientip)) {
       duplicate = 1;
@@ -962,66 +987,96 @@ void addToBrowseList(char* clientip, int i) {
     }
   }
   else {
+    // Check if clientip is our local ip
     if (strncmp(clientip, inet_ntoa(localip), INET_ADDRSTRLEN) == 0) {
       // Local index in browselist
       localindex = i; 
     }
+    // Copy client ip into given browse list entry
     strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
+
+    // Get the client's host name
     hostent* host;
     in_addr ip;
     ip.s_addr = inet_addr(clientip);
     host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
     strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
+    
+    // Initialize socket value
     browselist[i].socket = -1;
+
+    // Display a join message if client isn't us
     if ( i != localindex) 
       poutput(" >>> %s has entered the building\n", browselist[i].name);
-    //pdebug(" IP: %s\n", browselist[i].ip);
-    //pdebug(" Host: %s\n", browselist[i].name);
   }
 }
 
-// Function to append a client to the BrowseList
+/* Function to append a client to the browse list
+ *
+ * Arguments
+ * char* clientip: IP of client to be added
+ *
+ * Returns the browse list length after appending the new client to it
+ * Returns -1 client is already in list
+ */
 int addToBrowseList(char* clientip) {
   pdebug(" appending item to browse list\n");
 
+  // Check if client is already in the browse list
   for (int index = 0; index < browselistlength - 1; index++) {
     if (!strcmp(browselist[index].ip,clientip)) {
       return -1;
     }
   }
 
+  // Check if client is us
   int i = browselistlength;
   if (strncmp(clientip, inet_ntoa(localip), INET_ADDRSTRLEN) == 0) {
     // Local index in browselist
     localindex = i; 
   }
   strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
+
+  // Get host name
   hostent* host;
   in_addr ip;
   ip.s_addr = inet_addr(clientip);
   host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
   strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
+  
+  // Initialize socket value
   browselist[i].socket = -1;
+
+  // Display join message
   if ( i != localindex) 
     poutput(" >>> %s has entered the building\n", browselist[i].name);
 
+  // Return new browse list length
   i++;
   return i;
 }
 
-// Function to remove a single client from the BrowseList 
+/* Function to remove a client from the browse list
+ *
+ * Arguments
+ * int i: Entry in the browse list
+ *
+ * Returns the new browse list length
+ */
 int removeFromBrowseList(int i) {
   pdebug(" closing socket %d\n", browselist[i].socket);
-  int success; 
-  success = close(browselist[i].socket); // Clean up the socket
-  pdebug(" close exit code was %d\n", success);
   
+  // Close the socket
+  close(browselist[i].socket); 
+ 
+  // If entry was the last one, just initialize it's values 
   if ( i == browselistlength - 1) {
     browselist[i].socket = -1;
     memset(browselist[i].name, 0, 1024);
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
-  } else {
-    // Move all remaining entries one down
+  } 
+  // Otherwise move all remaining entries one down
+  else {
     for (int index = i; index < browselistlength - 1; index++) {
       strncpy(browselist[i].name, browselist[i+1].name, 1024);
       strncpy(browselist[i].ip, browselist[i+1].ip, INET_ADDRSTRLEN);
@@ -1029,6 +1084,7 @@ int removeFromBrowseList(int i) {
     }
   }
 
+  // Return new browse list length
   int newbllength;
   newbllength = browselistlength - 1;
   pdebug(" new browselist length: %d\n", newbllength);
@@ -1038,23 +1094,34 @@ int removeFromBrowseList(int i) {
 // Function to reset the BrowseList
 void reset_browselist() {
   for (int i = 0; i < MAX_MEMBERS - 1; i++) {
+    // Close the socket
     if (browselist[i].socket > 0)
       close(browselist[i].socket);
 
+    // Initialize the entry's values
     browselist[i].socket = -1;
     memset(browselist[i].name, 0, 1024);
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
   }
+
+  // Set browse list length to 0
   browselistlength = 0;
 }
 
-// Function to send a single BrowseListItem
-int send_BrowseListItem(int index) {
+/* Function to send a browse list entry via multicast
+ *
+ * Arguments
+ * int index: Index to be sent
+ */
+void send_BrowseListItem(int index) {
+  // Format the data as comma separated values as follows
+  // index, browselistlength, length of IP, IP in dotted notation
   char data[64];
   char bllength[16];
   char blindex[16];
   char iplength[16];
   char ip[16];
+
   strncpy(ip, browselist[index].ip, 16);
   sprintf(blindex, "%d", index);
   sprintf(bllength, "%d", browselistlength);
@@ -1067,31 +1134,33 @@ int send_BrowseListItem(int index) {
   strncat(data, ",", 1);
   strncat(data, ip, 16);
 
-  //pdebug(" Sending BrowseList item: %s\n", data);
-
+  // Send the data via multicast
   send_multicast(BROWSE_LIST, data);
-  return 0;
- 
 }
 
-// Function to receive and handle BrowseListItems
+/* Function to receive and handle browse list entries
+ *
+ * Arguments
+ * char* data: Browse list data as comma separated values
+ *
+ * Returns the new browse list length
+ */
 int receive_BrowseListItem(char* data) {
   char bllength[16];
   char blindex[16];
   char iplength[16];
   char ip[16];
 
+  // strtok() cuts data into tokens, separated by the given character 
   strncpy(bllength, strtok(data, ","), 16);
   strncpy(blindex, strtok(NULL, ","), 16);
   strncpy(iplength, strtok(NULL, ","), 16);
   strncpy(ip, strtok(NULL, ","), 16);
 
-  // If index is 0 we are about to receive a new BrowseList
-  //if (atoi(blindex) == 0)
-  //  reset_browselist(); TODO this shouldnt be necessary
-
+  // Add received browse list entry to browse list
   addToBrowseList(ip, atoi(blindex));
 
+  // Return received browse list length
   return atoi(bllength);
 }
 

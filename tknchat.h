@@ -168,7 +168,7 @@ void addToBrowseList(char*, int);
 int addToBrowseList(char*);
 int removeFromBrowseList(int);
 void reset_browselist();
-int send_BrowseListItem(int);
+void send_BrowseListItem(int);
 int receive_BrowseListItem(char*);
 int send_unicast(int, char*);
 void close_chat();
