@@ -1186,8 +1186,13 @@ int receive_BrowseListItem(char* data) {
   strncpy(iplength, strtok(NULL, ","), 16);
   strncpy(ip, strtok(NULL, ","), 16);
 
+  // Remove possible garbage data
+  char receivedip[INET_ADDRSTRLEN];
+  memset(receivedip, 0, INET_ADDRSTRLEN);
+  strncpy(receivedip, ip, atoi(iplength));
+
   // Add received browse list entry to browse list
-  addToBrowseList(ip, atoi(blindex));
+  addToBrowseList(receivedip, atoi(blindex));
 
   // Return received browse list length
   return atoi(bllength);
