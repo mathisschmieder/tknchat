@@ -140,13 +140,15 @@ int main(int argc, char** argv) {
 
     // Get data from sockets 
     if (retval > 0) {
-      if (FD_ISSET(sd, &rfds)) { // Is there data on the incoming unicast port?
+      // FD_ISSET returns 1 if there is data to be received in the specified socket
+      if (FD_ISSET(sd, &rfds)) { // Is there data on the multicast socket?
         packet mc_recv;
         memset(mc_recv.data, 0, strlen(mc_recv.data));  // Initialize and clear mc_recv
         recv(sd, &mc_recv, sizeof(mc_recv), 0);         // and receive data
 
         mc_packet = receive_packet(mc_recv); // Decode raw data into local_packet struct
-      } else if (FD_ISSET(s, &rfds)) {
+      } 
+      else if (FD_ISSET(s, &rfds)) {
         // We have a new visitor aka data on unicast listening socket
         int newsock, cli_len, valid;
         struct sockaddr_in client;
@@ -171,28 +173,29 @@ int main(int argc, char** argv) {
           close(newsock);
         }
       } 
+
+      // Check all member's sockets for data
       for (int i = 0; i < browselistlength; i++) { 
-        if (browselist[i].socket > 0) {
+        if (browselist[i].socket > 0) { // Only check on connected sockets
           if (FD_ISSET(browselist[i].socket, &rfds)) {
-            local_packet uc_packet;
-            packet uc_recv;
-            memset(uc_recv.data, 0, strlen(uc_recv.data));
-            read(browselist[i].socket, &uc_recv, sizeof(uc_recv));
+            local_packet uc_packet; // Declare  local_packet packet
+            packet uc_recv;         // Declare raw packet
+            memset(uc_recv.data, 0, strlen(uc_recv.data)); // Memory gets reused so make sure there is no garbage left
+            read(browselist[i].socket, &uc_recv, sizeof(uc_recv)); // Read from unicast stream socket
 
             uc_packet = receive_packet(uc_recv);
 
-            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
+            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) { // Receive chat message and display it
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
-            } else if (uc_packet.type == LEAVE_GROUP) { //only null-data packet on unicast is LEAVE_GROUP 
+            } else if (uc_packet.type == LEAVE_GROUP) {
               poutput(" >>> %s has left the building\n", browselist[i].name);
               browselistlength = removeFromBrowseList(i);
-              if (appl_state == I_AM_MASTER) { //inform other clients of the part
+              if (appl_state == I_AM_MASTER) { // The master SHOULD be the only one receiving this. Still checking just to be sure
                 char partindex[3];
                 sprintf(partindex, "%d", i);
-                send_multicast(LEAVE_GROUP, partindex); 
+                send_multicast(LEAVE_GROUP, partindex); // Inform all slaves of client leave 
               }
-            } else {
-              //TODO explanation why this is necessary
+            } else { // NULL-data packet received with a type != LEAVE_GROUP. This should not happen
               pdebug(" strange data from %s\n", browselist[i].name);
             }
           }
@@ -200,29 +203,30 @@ int main(int argc, char** argv) {
       }
     } 
 
-    if (input_set == 1) {
-      poutput(" <%s> %s\n", browselist[localindex].name, input);
-      send_unicast(DATA_PKT,input);
-      memset(input, 0, 80);
+    if (input_set == 1) { // Check if data has been set in the ncurses thread
+      poutput(" <%s> %s\n", browselist[localindex].name, input); // Local echo of chat message
+      send_unicast(DATA_PKT,input); // Send chat message to other members
+      memset(input, 0, 80); // Clear input char array
       input_set = 0;
     }
-    // STATE MACHINE
-    switch(appl_state) {
 
+    // STATE MACHINE
+    // This pretty much complies with the given state machine diagram
+    switch(appl_state) {
       case STATE_NULL:
         // a: send_SEARCHING_MASTER
-        send_multicast(SEARCHING_MASTER, inet_ntoa(localip));
+        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); // Supply the master with out IP
         setNewState(STATE_INIT);
         break;
       
       case STATE_INIT:
-        if ( maxreq > 0) {
-          maxreq--;
+        if ( maxreq > 0) {  // Check if the retry counter is > 0
+          maxreq--;         // and decrease it
           // e: rcvd_I_am_Master
           // a: send_get_browse_list
           if (mc_packet.type == I_AM_MASTER) {
             pdebug(" master found\n");
-            maxreq = 6;
+            maxreq = 6; // Browse List will be requested in STATE_MASTER_FOUND if not already received
             setNewState(STATE_MASTER_FOUND);
           } 
           // e: rcvd_force_election
@@ -231,6 +235,7 @@ int main(int argc, char** argv) {
             break;
           } 
           else {
+            // Retry counter is >0 but no data received, searching for master again
             send_multicast(SEARCHING_MASTER, inet_ntoa(localip));
           }
         }
@@ -248,16 +253,17 @@ int main(int argc, char** argv) {
         // a: manage_member_list 
         // a: establishConn
         if (mc_packet.type == BROWSE_LIST) {
-          maxreq = 5;
+          maxreq = 5; // Reset retry counter
           browselistlength = receive_BrowseListItem(mc_packet.data);
           setNewState(STATE_BROWSELIST_RCVD);
         } 
         else if (mc_packet.type == GET_MEMBER_INFO) {
+          // Received request to send our infos
           maxreq = 6;
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
-        else if (mc_packet.type == (int)NULL ) { //only decrement maxreq if there is no received packet
+        else if (mc_packet.type == (int)NULL ) { // Only decrement maxreq if there is no received packet
           // e: Timeout && #req < MAXREQ 
           // a: send_get_browse_list
           if (maxreq == 6) {
@@ -278,24 +284,8 @@ int main(int argc, char** argv) {
         break;
 
       case STATE_BROWSELIST_RCVD:
-        // TODO nice way of handling master dropouts
-        // Trying to periodically refresh browselist 
-        // and see if master is still there
-
-        if ( mc_packet.type == (int)NULL ) { //if there is no data, increment alive_req to check if the master still lives
-          // FIXME
-         // if (alive_req < 25) {
-         //   alive_req++;
-         // } else {
-         //   pdebug(" master dead!\n");
-         //   setNewState(STATE_FORCE_ELECTION);
-         // }
-        } else if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen == 0)) { //master ping, respond to it with a control packet and our ip
-          alive_req = 0;
-          pdebug(" master alive\n");
-          send_multicast(CTRL_PKT, inet_ntoa(localip));
-        } else if (mc_packet.type == GET_MEMBER_INFO) { //master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
-          maxreq = 6; //possible FIXME for segfaults
+        if (mc_packet.type == GET_MEMBER_INFO) { // Master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
+          maxreq = 6; // Reset retry counter 
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
           //TODO better handling of waiting time until the new master is ready <- this still necessary? 
