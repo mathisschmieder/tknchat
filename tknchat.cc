@@ -170,11 +170,10 @@ int main(int argc, char** argv) {
       
         // Scan the browse list and compare the new connection's source to all known clients
         // We will only accept connections from known members
-        // TODO MAX_MEMBERS -> browselistlength - lets hope it didnt break anything
         for (int i = 0; i < browselistlength; i++) { 
-          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) { // We found the source's IP in the browse list
-            // Accept and save active socket
-            browselist[i].socket = newsock; 
+          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) { 
+            // We found the source's IP in the browse list
+            browselist[i].socket = newsock; // Accept and save active socket
             valid = 1;
             // End for-loop
             break; 
@@ -210,12 +209,15 @@ int main(int argc, char** argv) {
             } else if (uc_packet.type == LEAVE_GROUP) {
               poutput(" >>> %s has left the building\n", browselist[i].name);
               browselistlength = removeFromBrowseList(i);
-              if (appl_state == I_AM_MASTER) { // The master SHOULD be the only one receiving this. Still checking just to be sure
+              // The master SHOULD be the only one receiving this. Still checking just to be sure
+              if (appl_state == I_AM_MASTER) { 
                 char partindex[3];
                 sprintf(partindex, "%d", i);
-                send_multicast(LEAVE_GROUP, partindex); // Inform all slaves of client leave 
+                // Inform all slaves of client leave
+                send_multicast(LEAVE_GROUP, partindex);  
               }
-            } else { // NULL-data packet received with a type != LEAVE_GROUP. This should not happen
+            } else { 
+              // NULL-data packet received with a type != LEAVE_GROUP. This should not happen
               pdebug(" strange data from %s\n", browselist[i].name);
             }
           }
@@ -223,10 +225,14 @@ int main(int argc, char** argv) {
       }
     } 
 
-    if (input_set == 1) { // Check if data has been set in the ncurses thread
-      poutput(" <%s> %s\n", browselist[localindex].name, input); // Local echo of chat message
-      send_unicast(DATA_PKT,input); // Send chat message to other members
-      memset(input, 0, 80); // Clear input char array
+    // Check if data has been set in the ncurses thread
+    if (input_set == 1) { 
+      // Local echo of chat message
+      poutput(" <%s> %s\n", browselist[localindex].name, input); 
+      // Send chat message to other members
+      send_unicast(DATA_PKT,input); 
+      // Clear input char array
+      memset(input, 0, 80); 
       input_set = 0;
     }
 
@@ -235,7 +241,8 @@ int main(int argc, char** argv) {
     switch(appl_state) {
       case STATE_NULL:
         // a: send_SEARCHING_MASTER
-        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); // Supply the master with our IP
+        // Supply the master with our IP
+        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); 
         setNewState(STATE_INIT);
         break;
       
@@ -246,7 +253,7 @@ int main(int argc, char** argv) {
           // a: send_get_browse_list
           if (mc_packet.type == I_AM_MASTER) {
             pdebug(" master found\n");
-            maxreq = 6; // Browse List will be requested in STATE_MASTER_FOUND if not already received
+            maxreq = 6; 
             setNewState(STATE_MASTER_FOUND);
           } 
           // e: rcvd_force_election
@@ -283,7 +290,8 @@ int main(int argc, char** argv) {
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
-        else if (mc_packet.type == (int)NULL ) { // Only decrement maxreq if there is no received packet
+        else if (mc_packet.type == (int)NULL ) { 
+          // Only do this if there is no received packet
           // e: Timeout && #req < MAXREQ 
           // a: send_get_browse_list
           if (maxreq == 6) {
@@ -307,7 +315,8 @@ int main(int argc, char** argv) {
         // e: rcvd_get_member_info
         // a: send_member_info
         // s: STATE_MASTER_FOUND
-        if (mc_packet.type == GET_MEMBER_INFO) { // Master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
+        if (mc_packet.type == GET_MEMBER_INFO) { 
+          // Master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
           maxreq = 6; // Reset retry counter 
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
@@ -355,8 +364,7 @@ int main(int argc, char** argv) {
           break;
         }
         // e: Timeout or rcvd_master_level < mine 
-        // a: send_I_am_Master 
-        // a: send_get_member_info
+        // a: Assume we are master but wait a little more before we publish it 
         else {
           // Create char to hold the OS_LEVEL (8 digits plus \0)
           char char_OS_Level[sizeof(OS_Level)*8+1];
@@ -366,7 +374,7 @@ int main(int argc, char** argv) {
           pdebug(" assuming I am master\n");
           maxreq = 5;
           setNewState(STATE_I_AM_MASTER);
-          // Wait 3 cycles until we are sure that we are the master
+          // Wait a couple of cycles until we are sure that we are the master
           masterdelay = 8; 
         }
         break;
@@ -375,23 +383,25 @@ int main(int argc, char** argv) {
         // Have we received a multicast packet?
         if ( mc_packet.type == (int)NULL ) { 
           if (masterdelay > 1)
-            pdebug(" masterdelay: %d\n", masterdelay);
             masterdelay--;
           if (masterdelay == 5) {
-            // Now we are the master
+            // 8-5=3 cycles without data
+            // We can safely assume that we are the master 
             masterdelay--; 
             // Initialize BrowseList
             reset_browselist();
-            pdebug(" adding myself\n");
+            // Add ourself to the browse list
             browselistlength = addToBrowseList(inet_ntoa(localip));
             // Ask all clients for their credentials
-            //send_multicast(BROWSE_LIST, 
             send_multicast(GET_MEMBER_INFO,NULL); 
           } else if (masterdelay == 1) {
-            //the clients had enough time to send us their infos, now we send out the browselist
+            // 4-1=3 cycles without data
+            // We can safely assume that all members have sent their info
+            // Send out the new browse list
             for (int i = 0; i < browselistlength; i++) {
               pdebug(" Sending browselistentry %d\n", i);
               send_BrowseListItem(i);
+              // Prevent the master from re-requesting and resending all data
               masterdelay = 0;
             }
           }
@@ -400,7 +410,6 @@ int main(int argc, char** argv) {
             // a: am_I_the_Master? No
           if ((mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level)) {
             maxreq = 5;
-            //TODO better handling of waiting time until the new master is ready 
             reset_browselist();
             setNewState(STATE_MASTER_FOUND);
             break;
@@ -408,7 +417,8 @@ int main(int argc, char** argv) {
           // e: rcvd_get_browselist
           // a: send_browselist
           else if (mc_packet.type == GET_BROWSE_LIST) {
-            masterdelay = 0; //prevent sending the browselist a second time later on
+            // Prevent sending the browselist a second time later on without being asked to
+            masterdelay = 0; 
             for (int i = 0; i < browselistlength; i++) {
               pdebug(" sending browselistentry %d\n", i);
               send_BrowseListItem(i);
@@ -417,10 +427,17 @@ int main(int argc, char** argv) {
           // e: rcvd_set_member_info
           // a: manage_member_list
           else if (mc_packet.type == SET_MEMBER_INFO) {
+            // Declare a char array for the received IP
+            // There may be garbage behind the IP in the received data
+            // Only copy mc_packet.datalen chars to eliminate garbage
             char receivedip[INET_ADDRSTRLEN];
             memset(receivedip, 0, INET_ADDRSTRLEN);
             strncpy(receivedip, mc_packet.data, mc_packet.datalen);
-            browselistlength = addToBrowseList(receivedip);
+            // Append to browse list
+            // Return value is -1 if entry already present
+            int newbllength = addToBrowseList(receivedip);
+            if (newbllength > 0)
+              browselistlength = newbllength;
           } 
           // e: rcvd_searching_master
           // a: send_I_am_Master
@@ -430,53 +447,32 @@ int main(int argc, char** argv) {
             strncpy(receivedip, mc_packet.data, mc_packet.datalen);
             browselistlength = addToBrowseList(receivedip);
             send_multicast(I_AM_MASTER, NULL);
-          } else if ( mc_packet.type == FORCE_ELECTION ) {
+          } 
+          // e: rcvd_force_election
+          // Clear browse list and go into election state
+          else if ( mc_packet.type == FORCE_ELECTION ) {
+            reset_browselist();
             setNewState(STATE_FORCE_ELECTION);
           } 
         }
-
-        // FIXME
-
-       // if (maxreq > 0) {
-       //   maxreq--;
-       //   if (alive_req > 1) {
-       //     if ((mc_packet.type == CTRL_PKT) && (mc_packet.datalen > 0)) {
-       //       alive_req--;
-       //     }
-       //   }
-       //   // All slaves replied
-       //   else if (alive_req == 1) {
-       //     alive_req = 0;
-       //     pdebug(" all slaves alive\n");
-       //   }
-       // }
-       // else {
-       //   if (alive_req > 0) {
-       //     pdebug(" slave dead!\n");
-       //     // TODO best way to handle this?
-       //     alive_req = 0;
-       //     maxreq = 10;
-       //     masterdelay = 6;
-       //   }
-       //   else {
-       //     maxreq = 10;
-       //     alive_req = browselistlength;
-       //     pdebug(" master ping!\n");
-       //     send_multicast(CTRL_PKT, NULL);
-       //   }
-       // }
         break;
     }
+    // Re-Initialize file descriptor set, refresh timer and output window
     init_fdSet(&rfds);
     setGlobalTimer(1,0);
     wrefresh(output_win);
   }
+  // The loop should never close, but if it does, exit the program cleanly
   close_chat();
   return 0;
 }
 
-// Function to output debug messages
-// when the DEBUG option is set
+/* Function to output debug messages to ncurses thread
+ * when the DEBUG option is set
+ *
+ * Arguments
+ * const char* fmt: Message to display, same syntax as printf()
+ */
 void pdebug(const char* fmt, ...) {
   #ifdef DEBUG
     va_list ap;
@@ -489,6 +485,11 @@ void pdebug(const char* fmt, ...) {
 
 }
 
+/* Function to output main data to ncurses thread
+ *
+ * Arguments
+ * const char* fmt: Message to display, same syntax as printf()
+ */
 void poutput(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -498,6 +499,11 @@ void poutput(const char* fmt, ...) {
     wrefresh(output_win);
 }
 
+/* Function to get input from ncurses thread
+ *
+ * TODO @konni
+ *
+ */
 void *get_input(void *arg) {
   int index = 0;
   char local_input[80];
@@ -559,7 +565,7 @@ void *get_input(void *arg) {
         wrefresh(input_win);
       }
     }
-    // frequently used characters and umlaute
+    // frequently used characters and umlauts
     else if (( ch >= 32) && (ch <= 126)) {
       local_input[index++] = ch;
       mvwaddch(input_win, input_ypos, input_xpos, ch);
@@ -575,15 +581,13 @@ void *get_input(void *arg) {
   return NULL;
 }
 
-
 // Function to output program version
 void version() 
 {
-  // TODO git version?
-  printf("tknchat v0.5-schlagmichtot\n");
+  printf("tknchat v0.9\n");
 }
 
-// Function for basic help
+// Function to output basic help
 void usage()
 {
   printf("usage:\n");
@@ -592,7 +596,12 @@ void usage()
   printf(" -i --interface\t set primary interface (default eth0)\n");
 }
 
-// Function for parsing and handling command line arguments 
+/* Function for parsing program arguments
+ *
+ * Arguments
+ * int argc: Number of arguments
+ * char** argv: Array with arguments
+ */
 void parse_options(int argc, char** argv) {
   int ret;
   
@@ -614,59 +623,82 @@ void parse_options(int argc, char** argv) {
     }
 }
 
-// Function to get own IP adress
+/* Function to get an interface's IP address
+ *
+ * Arguments
+ * const char* eth: Linux network interface name
+ *
+ * Return Value
+ * in_addr sin_addr: Interface's IP address in struct in_addr format
+ */
 in_addr getIP(const char* eth) {
   struct ifaddrs * ifAddrStruct=NULL;
   struct ifaddrs * ifa=NULL;
   struct sockaddr_in * sockaddr;
 
+  // Get all available network interfaces as a linked list
   getifaddrs(&ifAddrStruct);
  
+  // Traverse linked list and search for correct interface
   for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-    if ((ifa->ifa_addr != NULL) && (ifa->ifa_addr->sa_family==AF_INET) && (strcmp(ifa->ifa_name, eth) == 0)) {
+    if ((ifa->ifa_addr != NULL) 
+        // We only use IPv4
+        && (ifa->ifa_addr->sa_family==AF_INET) 
+        && (strcmp(ifa->ifa_name, eth) == 0)) {
         sockaddr = (struct sockaddr_in *)(ifa->ifa_addr);
        break;
     }
   }
+  // Free memory allocated by getifaddrs()
   freeifaddrs(ifAddrStruct);
 
   return sockaddr->sin_addr;
 }
 
-// Function to initialize the file descriptor set
-int init_fdSet(fd_set* fds) {
+/* Function to initialize file descriptor set
+ *
+ * Arguments
+ * fd_set* fds: file descriptor set to initialize
+ */
+void init_fdSet(fd_set* fds) {
   // reset fds
   FD_ZERO(fds);
-  // add console 
-  // handled by ncurses now
-  //FD_SET(0, fds);
+  
   // add multicast 
   FD_SET(sd, fds);
+  
   // add unicast incoming port
   FD_SET(s, fds);
+  
   // add unicast connections
   for (int i = 0; i < MAX_MEMBERS; i++) 
     if (browselist[i].socket > 0) 
       FD_SET(browselist[i].socket, fds);
 }
 
-// Function to setup multicast communication
+/* Function to set up multicast socket
+ *
+ * Returns the set up socket
+ */
 int setup_multicast() {
   int sd;
   struct ip_mreq group;
 
+  // Initialize socket
   sd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sd < 0) {
     perror("Error opening datagram socket");
     exit(1);
   }
  
+  // Don't block the local multicast port
   int reuse = 1;
   if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
     perror("Error setting SO_REUSEADDR");
     exit(1);
   }
 
+  // Prevent receiving own multicast messages
   char loopch = 0;
   if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&loopch, sizeof(loopch)) < 0) {
     perror("Error setting IP_MULTICAST_LOOP");
@@ -674,6 +706,7 @@ int setup_multicast() {
     exit(1);
   }
 
+  // Set multicast group address and port
   memset((char* ) &msock, 0, sizeof(msock));
   msock.sin_family = AF_INET;
   msock.sin_port = htons(MC_GROUP_PORT);
@@ -684,6 +717,7 @@ int setup_multicast() {
     exit(1);
   }
 
+  // Joining multicast group
   group.imr_multiaddr.s_addr = inet_addr(MC_GROUP_ADDR);
   group.imr_interface.s_addr = INADDR_ANY;
   if(setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0) {
@@ -692,21 +726,30 @@ int setup_multicast() {
    }
 
   pdebug(" Multicast set up\n");
+  
+  // Return set up socket
   return sd;
 }
 
+/* Function to set up local listening, passive open unicast socket 
+ *
+ * Returns the set up socket
+ */
 int setup_unicast_listen() {
   int s;
   struct sockaddr_in srv;
 
   pdebug(" Setting up incoming socket\n");
 
+  // Initialize socket
   s = socket(AF_INET, SOCK_STREAM, 0);
   if (s < 0) {
     perror("Error opening local listening socket");
     exit(1);
   }
 
+  // Set port number and bind socket to port
+  // Accept connections from any IP
   srv.sin_addr.s_addr = INADDR_ANY;
   srv.sin_port = htons(UC_DATA_PORT);
   srv.sin_family = AF_INET;
@@ -715,27 +758,41 @@ int setup_unicast_listen() {
     exit(1);
   }
 
+  // Set socket passive open and listen for up to 5 simultaneous commections
   if (listen(s,5) < 0) {
     perror("Error listening to local socket");
     exit(1);
   }
 
+  // Return set up socket
   return s;
 }
 
+/* Function to set up unicast connections to other members
+ *
+ * Returns the number of opened connections
+ * Returns -1 if there was an error
+ */
 int setup_unicast() {
-  int newsock;
+  int newsock, returnvalue;
   struct sockaddr_in options;
+
+  // Because TCP is full duplex, we only need one connection between two members
+  // Every client opens connections to members that lower in the browse list
+  // than itself. All higher clients will connect to said client.
   for (int i = 0; i < localindex; i++) {
-    if ((browselist[i].socket == -1) 
-        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 )) { // this should be obsolete
-        pdebug(" opening connection to %s, i is %d\n", browselist[i].ip, i);
+    // Only connect if there is a socket to connect to
+    if (browselist[i].socket == -1) { 
+      pdebug(" opening connection to %s, i is %d\n", browselist[i].ip, i);
+      
+      // Initialize a new socket. If this fails, quit the program        
       newsock = socket(AF_INET, SOCK_STREAM, 0);
       if (newsock < 0) {
         perror("Error opening unicast socket, closing chat");
         close_chat();
       }
 
+      // Set destination IP and port and connect
       options.sin_addr.s_addr = inet_addr(browselist[i].ip);
       options.sin_port = htons(UC_DATA_PORT);
       options.sin_family = AF_INET;
@@ -743,38 +800,65 @@ int setup_unicast() {
         perror("Error connecting to unicast socket");
         return -1;
       }
-
+      // Increment number of opened sockets
+      returnvalue++;
+      // Save socket in browse list
       browselist[i].socket = newsock;
     } 
   }
-  return 0; //TODO
+  
+  // Return number of opened sockets
+  return returnvalue; 
 }
 
-// Function to send a multicast packet
+/* Function to send data over multicast
+ *
+ * Arguments
+ * int type: Packet type as defined in header
+ * char* data: Packet data, maximum length as defined in header
+ *
+ * Returns the return value of sendto()
+ */
 int send_multicast(int type, char* data) {
   packet packet;
+  // Create raw data packet
   packet = create_packet(type, data);
-  //printf("sending multicast type: %d\n", type);
+  
   if ( data != NULL) {
-    //                                    +4 (header) 
+    //                                              + 4 Bytes (header) 
     return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
   }
   else
+    //                                 4 Bytes (header)
     return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
+/* Function to send data over unicast
+ *
+ * Arguments
+ * int type: Packet type as defined in header
+ * char* data: Packet data, maximum length as defined in header
+ *
+ * Returns the value of the last write()
+ */
 int send_unicast(int type, char* data) {
   packet packet;
+  // Create raw data packet
   packet = create_packet(type, data);
+
+  // Initialize return value
   int returnvalue;
   returnvalue = 0;
 
   if ( type == LEAVE_GROUP )
+    // Only send LEAVE_GROUP to master, saved in the first browse list entry
     returnvalue = send(browselist[0].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
   else {
+    // All other unicat packets go to every member
     for (int i = 0; i < MAX_MEMBERS; i++) {
-      if ((browselist[i].socket > 0) //dont send to empty sockets
-          && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
+      if ((browselist[i].socket > 0) // Dont send to empty sockets
+          // Dont send to ourself
+          && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { 
         returnvalue = write(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4);
           pdebug(" socket: %d\n", browselist[i].socket);
           pdebug(" sending data: %s\n", data);
@@ -785,7 +869,9 @@ int send_unicast(int type, char* data) {
   return returnvalue;
 }
 
-// Function to set a new state on the StateMachine
+/* Function to set new application state
+ * Also updates the window's state output
+ */
 void setNewState(int state) {
   appl_state = state;
 
@@ -826,20 +912,34 @@ void setNewState(int state) {
   wrefresh(input_win);
 }
 
-// Function to set the global timer used for select
+/* Function to set the global timer
+ *
+ * Arguments
+ * int sec: Second value
+ * int usec: Micro second value
+ */
 void setGlobalTimer(int sec, int usec) {
   globalTimer.tv_sec  = sec;
   globalTimer.tv_usec = usec;
 }
 
+/* Function to prepare data to be sent
+ *
+ * Arguments
+ * int type: Packet type as specified in header
+ * char* data: Packet data, maximum length as specified in header
+ *
+ * Returns a packet struct ready to be sent as specified in header
+ */
 packet create_packet(int type, char* data) {
-  // TODO: seqno % 255
-  seqno++; //increment sequence number by one
+  // Increments sequence number and returns to 1 if value is >255 
+  seqno = seqno + 1 % 255; 
 
   packet packet;
   uint32_t header;
   uint16_t datalen;
 
+  // Clean packet.data from any possible memory garbage
   memset(packet.data, 0, MAX_MSG_LEN);
   // Only set datalen if there is data
   if (data != NULL) { 
@@ -848,40 +948,60 @@ packet create_packet(int type, char* data) {
   } else
     datalen = 0;
 
+  // Format the header into a bit field by bit shifting the integers
   // Headerformat
   // 32Bit = VERSION 2    TYPE 5      OPTIONS 1  SEQNO 8      DATALEN 16 
   header = (0x01 << 30)|(type << 25)|(0 << 24)|(seqno << 16)|(datalen);
+  // Transform bit field into network byte order for safe sending
   packet.header = htonl(header);
+
+  // Return packet struct, ready to be sent
   return packet;
 }
 
+/* Function to decode raw packet into local_packet struct
+ *
+ * Argument
+ * packet: Raw received packet
+ *
+ * Returns a local_packet struct filled with received data
+ */
 local_packet receive_packet(packet packet) {
   local_packet local_packet;
   uint32_t header;
 
+  // Convert header bit field back into local byte order
   header = ntohl(packet.header);
+  // Bit shift and mask bit field to retrieve original integers
   local_packet.version = (header >> 30) & 3;
   local_packet.type = (header >> 25) & 31;
   local_packet.options = (header >> 24) & 1;
   local_packet.seqno = (header >> 16) & 255;
   local_packet.datalen = header & 65535;
 
+  // Eliminate any memory garbage from local_packet struct
   memset(local_packet.data, 0, strlen(local_packet.data));
-  //pdebug(" Received packet, type: %d\n", local_packet.type);
 
+  // Only copy data if there is data present
   if (local_packet.datalen != 0) {
     strncpy(local_packet.data, packet.data, sizeof(packet.data));
   }
 
+  // Return local_packet struct
   return local_packet;
 }
 
-// Function to add a client to the BrowseList
+/* Function to add an entry to a specific browse list position
+ *
+ * Arguments
+ * char* clientip: IP of the client
+ * int i: Position in the browse list
+ */
 void addToBrowseList(char* clientip, int i) {
   pdebug(" adding item to browse list\n");
   int duplicate = 0;
-  // Check if item already exists in browselist
-  // starting with first slave
+
+  // Check if item already in browselist
   for (int index = 0; index < i + 1; index++) {
     if (!strcmp(browselist[index].ip,clientip)) {
       duplicate = 1;
@@ -896,66 +1016,96 @@ void addToBrowseList(char* clientip, int i) {
     }
   }
   else {
+    // Check if clientip is our local ip
     if (strncmp(clientip, inet_ntoa(localip), INET_ADDRSTRLEN) == 0) {
       // Local index in browselist
       localindex = i; 
     }
+    // Copy client ip into given browse list entry
     strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
+
+    // Get the client's host name
     hostent* host;
     in_addr ip;
     ip.s_addr = inet_addr(clientip);
     host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
     strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
+    
+    // Initialize socket value
     browselist[i].socket = -1;
+
+    // Display a join message if client isn't us
     if ( i != localindex) 
       poutput(" >>> %s has entered the building\n", browselist[i].name);
-    //pdebug(" IP: %s\n", browselist[i].ip);
-    //pdebug(" Host: %s\n", browselist[i].name);
   }
 }
 
-// Function to append a client to the BrowseList
+/* Function to append a client to the browse list
+ *
+ * Arguments
+ * char* clientip: IP of client to be added
+ *
+ * Returns the browse list length after appending the new client to it
+ * Returns -1 client is already in list
+ */
 int addToBrowseList(char* clientip) {
   pdebug(" appending item to browse list\n");
 
+  // Check if client is already in the browse list
   for (int index = 0; index < browselistlength - 1; index++) {
     if (!strcmp(browselist[index].ip,clientip)) {
       return -1;
     }
   }
 
+  // Check if client is us
   int i = browselistlength;
   if (strncmp(clientip, inet_ntoa(localip), INET_ADDRSTRLEN) == 0) {
     // Local index in browselist
     localindex = i; 
   }
   strncpy(browselist[i].ip, clientip, INET_ADDRSTRLEN);
+
+  // Get host name
   hostent* host;
   in_addr ip;
   ip.s_addr = inet_addr(clientip);
   host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
   strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
+  
+  // Initialize socket value
   browselist[i].socket = -1;
+
+  // Display join message
   if ( i != localindex) 
     poutput(" >>> %s has entered the building\n", browselist[i].name);
 
+  // Return new browse list length
   i++;
   return i;
 }
 
-// Function to remove a single client from the BrowseList 
+/* Function to remove a client from the browse list
+ *
+ * Arguments
+ * int i: Entry in the browse list
+ *
+ * Returns the new browse list length
+ */
 int removeFromBrowseList(int i) {
   pdebug(" closing socket %d\n", browselist[i].socket);
-  int success; 
-  success = close(browselist[i].socket); // Clean up the socket
-  pdebug(" close exit code was %d\n", success);
   
+  // Close the socket
+  close(browselist[i].socket); 
+ 
+  // If entry was the last one, just initialize it's values 
   if ( i == browselistlength - 1) {
     browselist[i].socket = -1;
     memset(browselist[i].name, 0, 1024);
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
-  } else {
-    // Move all remaining entries one down
+  } 
+  // Otherwise move all remaining entries one down
+  else {
     for (int index = i; index < browselistlength - 1; index++) {
       strncpy(browselist[i].name, browselist[i+1].name, 1024);
       strncpy(browselist[i].ip, browselist[i+1].ip, INET_ADDRSTRLEN);
@@ -963,6 +1113,7 @@ int removeFromBrowseList(int i) {
     }
   }
 
+  // Return new browse list length
   int newbllength;
   newbllength = browselistlength - 1;
   pdebug(" new browselist length: %d\n", newbllength);
@@ -972,23 +1123,34 @@ int removeFromBrowseList(int i) {
 // Function to reset the BrowseList
 void reset_browselist() {
   for (int i = 0; i < MAX_MEMBERS - 1; i++) {
+    // Close the socket
     if (browselist[i].socket > 0)
       close(browselist[i].socket);
 
+    // Initialize the entry's values
     browselist[i].socket = -1;
     memset(browselist[i].name, 0, 1024);
     memset(browselist[i].ip, 0, INET_ADDRSTRLEN);
   }
+
+  // Set browse list length to 0
   browselistlength = 0;
 }
 
-// Function to send a single BrowseListItem
-int send_BrowseListItem(int index) {
+/* Function to send a browse list entry via multicast
+ *
+ * Arguments
+ * int index: Index to be sent
+ */
+void send_BrowseListItem(int index) {
+  // Format the data as comma separated values as follows
+  // index, browselistlength, length of IP, IP in dotted notation
   char data[64];
   char bllength[16];
   char blindex[16];
   char iplength[16];
   char ip[16];
+
   strncpy(ip, browselist[index].ip, 16);
   sprintf(blindex, "%d", index);
   sprintf(bllength, "%d", browselistlength);
@@ -1001,37 +1163,40 @@ int send_BrowseListItem(int index) {
   strncat(data, ",", 1);
   strncat(data, ip, 16);
 
-  //pdebug(" Sending BrowseList item: %s\n", data);
-
+  // Send the data via multicast
   send_multicast(BROWSE_LIST, data);
-  return 0;
- 
 }
 
-// Function to receive and handle BrowseListItems
+/* Function to receive and handle browse list entries
+ *
+ * Arguments
+ * char* data: Browse list data as comma separated values
+ *
+ * Returns the new browse list length
+ */
 int receive_BrowseListItem(char* data) {
   char bllength[16];
   char blindex[16];
   char iplength[16];
   char ip[16];
 
+  // strtok() cuts data into tokens, separated by the given character 
   strncpy(bllength, strtok(data, ","), 16);
   strncpy(blindex, strtok(NULL, ","), 16);
   strncpy(iplength, strtok(NULL, ","), 16);
   strncpy(ip, strtok(NULL, ","), 16);
 
-  // If index is 0 we are about to receive a new BrowseList
-  //if (atoi(blindex) == 0)
-  //  reset_browselist(); TODO this shouldnt be necessary
-
+  // Add received browse list entry to browse list
   addToBrowseList(ip, atoi(blindex));
 
+  // Return received browse list length
   return atoi(bllength);
 }
 
 // Exit function
 void close_chat() {
   poutput(" >> quitting chat\n");
+
   // Tell the group that we are leaving
   if (appl_state == I_AM_MASTER)
     send_multicast(LEAVE_GROUP_MASTER, NULL);
@@ -1090,3 +1255,13 @@ void display_help() {
   poutput("\t/who  - Display who is inside the building\n");
   poutput("\t/help - Display this help\n");
 }
+
+
+/* Wow - you have read through nearly 1230 lines of code. Respect!
+ *
+ * We do assure you that no animals were harmed while programming this tool.
+ * A big thanks to Mountain Dew and Lucky Strike, without you
+ * this project would never have been possible.
+ *
+ * Keep it safe, 42 and godspeed!
+ */

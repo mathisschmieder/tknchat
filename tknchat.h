@@ -154,7 +154,7 @@ WINDOW *debug_win, *output_win, *input_win;
 
 // Definition of all functions - you find the explanations in the source file
 in_addr getIP(const char*);
-int init_fdSet(fd_set*);
+void init_fdSet(fd_set*);
 int setup_multicast();
 int setup_unicast_listen();
 int setup_unicast();
@@ -168,7 +168,7 @@ void addToBrowseList(char*, int);
 int addToBrowseList(char*);
 int removeFromBrowseList(int);
 void reset_browselist();
-int send_BrowseListItem(int);
+void send_BrowseListItem(int);
 int receive_BrowseListItem(char*);
 int send_unicast(int, char*);
 void close_chat();
