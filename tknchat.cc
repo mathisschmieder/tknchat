@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
     switch(appl_state) {
       case STATE_NULL:
         // a: send_SEARCHING_MASTER
-        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); // Supply the master with out IP
+        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); // Supply the master with our IP
         setNewState(STATE_INIT);
         break;
       
@@ -284,13 +284,20 @@ int main(int argc, char** argv) {
         break;
 
       case STATE_BROWSELIST_RCVD:
+        // e: rcvd_get_member_info
+        // a: send_member_info
+        // s: STATE_MASTER_FOUND
         if (mc_packet.type == GET_MEMBER_INFO) { // Master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
           maxreq = 6; // Reset retry counter 
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
-          //TODO better handling of waiting time until the new master is ready <- this still necessary? 
           setNewState(STATE_MASTER_FOUND);
-        } else if (mc_packet.type == LEAVE_GROUP_MASTER) {
+        } 
+        // e: rcvd_leave_group_master
+        // a: remove master from browse list
+        // a: send_force_election
+        // s: STATE_FORCE_ELECTION
+        else if (mc_packet.type == LEAVE_GROUP_MASTER) {
           maxreq = 5;
           removeFromBrowseList(0);
           send_multicast(STATE_FORCE_ELECTION, NULL);
@@ -301,13 +308,15 @@ int main(int argc, char** argv) {
         // a: manage_member_list
         else if ((mc_packet.type == BROWSE_LIST)) {
           browselistlength = receive_BrowseListItem(mc_packet.data);
-        } else if (mc_packet.type == LEAVE_GROUP) {
-          //remove client from browselist
+        } 
+        // e: rcvd_leave_group
+        // a: remove member from browse list
+        else if (mc_packet.type == LEAVE_GROUP) {
           poutput(" >>> %s has left the building\n", browselist[atoi(mc_packet.data)].name);
-          pdebug(" bllength before removing: %d\n", browselistlength);
           browselistlength = removeFromBrowseList(atoi(mc_packet.data));
-          pdebug(" bllength after removing: %d\n", browselistlength);
         }
+        // Set up unicast connections. If the return value is < 0 then something went wrong
+        // If that is the case, clear browse list and request a new one 
         if ( setup_unicast() < 0) {
           pdebug(" error setting up unicast connections, requesting new browse list\n");
           reset_browselist();
@@ -321,7 +330,6 @@ int main(int argc, char** argv) {
         // a: Am_I_the_Master? No
         if ((mc_packet.type == I_AM_MASTER) || 
             ( (mc_packet.type == MASTER_LEVEL) && (ntohl(atoi(mc_packet.data)) > OS_Level) )) {
-          //TODO better handling of waiting time until the new master is ready
           maxreq = 5;
           setNewState(STATE_MASTER_FOUND);
           break;
@@ -330,7 +338,7 @@ int main(int argc, char** argv) {
         // a: send_I_am_Master 
         // a: send_get_member_info
         else {
-          // Create char to hold the OS_LEVEL 
+          // Create char to hold the OS_LEVEL (8 digits plus \0)
           char char_OS_Level[sizeof(OS_Level)*8+1];
           sprintf(char_OS_Level, "%d", htonl(OS_Level));
           // And send it via multicast
