@@ -30,18 +30,22 @@ int main(int argc, char** argv) {
 
   // Create ncurses user interface
   initscr();
+  
+  // Don't echo chars as we getch() them
   noecho();
+  // Let us handle CTRL-C
   raw();
+  // Enable single keycodes for keypad and function keys
+  keypad(stdscr, TRUE);
   // Hide cursor
   curs_set(0);
-  // I need F1
-  // TODO do i? @konni
-  keypad(stdscr, TRUE);   
   
+
   // never forget
   refresh();
 
   // Debug window - this will only be displayed if compiled with -DDEBUG
+  // Define dimensions of the debug window
   debug_xstart = 0;
   debug_ystart = 0;
   #ifdef DEBUG
@@ -50,36 +54,41 @@ int main(int argc, char** argv) {
     debug_height = 0;
   #endif
   debug_width = COLS;
+  // Create debug window
   debug_win = create_newwin(debug_height, debug_width, debug_ystart, debug_xstart, 1);
 
+  // Enable scrolling
   scrollok(debug_win, true);
   wrefresh(debug_win);
 
   // Output window
+  // Define dimensions of the output window
   output_xstart = 0;
   output_ystart = debug_height;
   output_height = LINES - 3 - debug_height;
   output_width = COLS;
   output_win = create_newwin(output_height, output_width, output_ystart, output_xstart, 1);
 
+  // Enable scrolling
   scrollok(output_win, true);
   wrefresh(output_win);
 
   // Input window
+  // Define dimensions of the input window
   input_xstart = 0;
   input_ystart = LINES - 3;
   input_height = 3;
   input_width = COLS;
   input_win = create_newwin(input_height, input_width, input_ystart, input_xstart, 1);
+
+  // immediately get characters
   nodelay(input_win, true);
   wrefresh(input_win);
 
-  // Define cursor
-  int output_xpos = output_xstart+1;
-  int output_ypos = output_ystart+1;
-
   // Input
+  // Clear our input buffer
   memset(input, 0, 80);
+  // There is no input yet
   input_set = 0;
 
   // OS_Level generation 
@@ -565,18 +574,19 @@ void *get_input(void *arg) {
         wrefresh(input_win);
       }
     }
-    // frequently used characters and umlauts
+    // frequently used characters 
     else if (( ch >= 32) && (ch <= 126)) {
-      local_input[index++] = ch;
-      mvwaddch(input_win, input_ypos, input_xpos, ch);
-      wrefresh(input_win);
-      input_xpos++;
+      if (index < 79) {
+        local_input[index++] = ch;
+        mvwaddch(input_win, input_ypos, input_xpos, ch);
+        wrefresh(input_win);
+        input_xpos++;
+      }
     }
     else {
       pdebug(" keycode: %d\n", ch);
     }
   }
-  //poutput((char *)arg);
   close_chat();
   return NULL;
 }
@@ -1226,7 +1236,17 @@ void close_chat() {
   exit(0);  
 }
 
-// Function to create a new ncurses window
+/* Function to receive and handle browse list entries
+ *
+ * Arguments
+ * int height: height of the window
+ * int width:  width of the window
+ * int ystart: y coordinate of the upper left corner
+ * int ystart: x coordinate of the upper left corner
+ * int border: 1 for a border, 0 for none
+ *
+ * Returns a pointer to the newly created window
+ */
 WINDOW *create_newwin(int height, int width, int ystart, int xstart, int border) { 
   WINDOW *local_win;
   local_win = newwin(height, width, ystart, xstart);
@@ -1238,7 +1258,12 @@ WINDOW *create_newwin(int height, int width, int ystart, int xstart, int border)
   return local_win;
 }
 
-// Function to destroy a ncurses window
+/* Function to destroy a ncurses window
+ *
+ * Arguments
+ * window *local win: pointer to the window that we want to destroy
+ *
+ */
 void destroy_win(WINDOW *local_win) { 
   wborder(local_win, ' ', ' ', ' ',' ',' ',' ',' ',' ');
   wrefresh(local_win);
@@ -1262,11 +1287,13 @@ void display_help() {
 }
 
 
-/* Wow - you have read through nearly 1230 lines of code. Respect!
+/* Wow - you have read through nearly 1300 lines of code. Respect!
  *
  * We do assure you that no animals were harmed while programming this tool.
  * A big thanks to Mountain Dew and Lucky Strike, without you
  * this project would never have been possible.
+ *
+ * Say no to drugs! 
  *
  * Keep it safe, 42 and godspeed!
  */
