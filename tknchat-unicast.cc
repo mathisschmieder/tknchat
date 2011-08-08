@@ -93,9 +93,6 @@ int main(int argc, char** argv) {
   output_ystart = debug_height;
   output_height = LINES - 3 - debug_height;
   output_width = COLS;
-  // NOBORDER
-  //output_win = create_newwin(output_height, output_width, output_ystart, output_xstart, 0);
-  // BORDER
   output_win = create_newwin(output_height, output_width, output_ystart, output_xstart, 1);
 
   scrollok(output_win, true);
@@ -540,40 +537,54 @@ void *get_input(void *arg) {
   
   // Continue until we catch CTRL-C
   while((ch = getch()) != 3) {
-    // ENTER, BACKSPACE, frequently used characters
-    if ((ch == 10) || (ch == 263) || (( ch >= 32) && (ch <= 126))) {
-      switch(ch) {
-        case KEY_BACKSPACE:
-          if( index > 0) {
-            index--;
-            local_input[index] = (char)NULL;
+    // ENTER
+    if (ch == 10) {
+      if (( index > 0) && (input_set == 0)) {
+        if (local_input[0] == 47) {
+          pdebug(" control sequence\n");
+          if (strncmp("quit", &local_input[1], 5) == 0)
+            return 0;
+          else {
+            if (strncmp("who", &local_input[1], 5) == 0)
+            //display_browselist();
+              else {
+                if (strncmp("help", &local_input[1], 5) == 0)
+                  //display_help();
+                else
+                  poutput(" > Command not recognized.\n Enter /help for a list of commands\n");
+              }
+          }
+        }
+        else {
+          index = 0;
+          while (input_xpos > 1) {
             input_xpos--;
             mvwaddch(input_win, input_ypos, input_xpos, ' ');
-            wrefresh(input_win);
           }
-        break;
-        case '\n':
-          if (( index > 0) && (input_set == 0)) {
-            //poutput(" > %s\n", local_input);
-            index = 0;
-            while (input_xpos > 1) {
-              input_xpos--;
-              mvwaddch(input_win, input_ypos, input_xpos, ' ');
-            }
-            
-            wrefresh(input_win);
-            strncpy(input, local_input, 80);
-            input_set = 1;
-            memset(local_input, 0, 80);
-          }
-        break;
-        default:
-          local_input[index++] = ch;
-          mvwaddch(input_win, input_ypos, input_xpos, ch);
+          
           wrefresh(input_win);
-          input_xpos++;
-        break;
+          strncpy(input, local_input, 80);
+          input_set = 1;
+          memset(local_input, 0, 80);
+        }
       }
+    }
+    // BACKSPACE
+    else if ( ch == 263 ) {
+      if( index > 0) {
+        index--;
+        local_input[index] = (char)NULL;
+        input_xpos--;
+        mvwaddch(input_win, input_ypos, input_xpos, ' ');
+        wrefresh(input_win);
+      }
+    }
+    // frequently used characters and umlaute
+    else if (( ch >= 32) && (ch <= 126)) {
+      local_input[index++] = ch;
+      mvwaddch(input_win, input_ypos, input_xpos, ch);
+      wrefresh(input_win);
+      input_xpos++;
     }
     else {
       pdebug(" keycode: %d\n", ch);
@@ -785,8 +796,8 @@ int send_unicast(int type, char* data) {
       if ((browselist[i].socket > 0) //dont send to empty sockets
           && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
         returnvalue = write(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4);
-          pdebug("socket: %d\n", browselist[i].socket);
-          pdebug("sending data: %s\n", data);
+          pdebug(" socket: %d\n", browselist[i].socket);
+          pdebug(" sending data: %s\n", data);
       }
     }
   }

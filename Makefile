@@ -1,6 +1,6 @@
+all: unicast
 debug:
-		g++  -DDEBUG -lpthread -lncurses tknchat-masterping.cc -o tknchat
-masterping:
-		g++ -lpthread -lncurses tknchat-masterping.cc -o tknchat
+		g++  -DDEBUG -lpthread -lncurses tknchat-unicast.cc -o tknchat
+unicast:
+		g++ -lpthread -lncurses tknchat-unicast.cc -o tknchat
 
-all: masterping
