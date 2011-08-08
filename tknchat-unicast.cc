@@ -1110,7 +1110,6 @@ void display_browselist() {
   poutput(" >>> Currently in this building:\n");
   for (int i = 0; i < browselistlength; i++)
     poutput("\t%s\n", browselist[i].name);
-  poutput(" <<<\n");
 }
 
 // Function to display help
@@ -1119,5 +1118,4 @@ void display_help() {
   poutput("\t/quit - Leave the building\n");
   poutput("\t/who  - Display who is inside the building\n");
   poutput("\t/help - Display this help\n");
-  poutput(" <<<\n");
 }
