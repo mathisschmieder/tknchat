@@ -530,43 +530,53 @@ void poutput(const char* fmt, ...) {
 void *get_input(void *arg) {
   int index = 0;
   char local_input[80];
-  memset(input, 0, 80);
+  memset(local_input, 0, 80);
   input_ypos = 1;
   input_xpos = 1;
   mvwprintw(input_win, input_ypos, input_xpos, "%s", input);
+  int leave = 0;
   
   // Continue until we catch CTRL-C
-  while((ch = getch()) != 3) {
+  while(((ch = getch()) != 3) && (leave == 0)) {
     // ENTER
     if (ch == 10) {
+      // Input available and ready to send
       if (( index > 0) && (input_set == 0)) {
+        // Control Sequence
         if (local_input[0] == 47) {
-          pdebug(" control sequence\n");
-          if (strncmp("quit", &local_input[1], 5) == 0)
-            return 0;
+          if (strncmp("quit", &local_input[1], 5) == 0) {
+            pdebug(" control sequence: quit\n");
+            leave = 1;
+          }
           else {
-            if (strncmp("who", &local_input[1], 5) == 0)
-            //display_browselist();
-              else {
-                if (strncmp("help", &local_input[1], 5) == 0)
-                  //display_help();
-                else
-                  poutput(" > Command not recognized.\n Enter /help for a list of commands\n");
+            if (strncmp("who", &local_input[1], 5) == 0) {
+              pdebug(" control sequence: who\n");
+              display_browselist();
+            }
+            else {
+              if (strncmp("help", &local_input[1], 5) == 0) {
+                pdebug(" control sequence: help\n");
+                display_help();
+              }
+              else
+                poutput(" >>> Command not recognized.\n\tEnter /help for a list of commands\n");
               }
           }
         }
+        // Normal input
         else {
-          index = 0;
-          while (input_xpos > 1) {
-            input_xpos--;
-            mvwaddch(input_win, input_ypos, input_xpos, ' ');
-          }
-          
-          wrefresh(input_win);
           strncpy(input, local_input, 80);
           input_set = 1;
-          memset(local_input, 0, 80);
         }
+        // Clear input and buffer
+        index = 0;
+        while (input_xpos > 1) {
+          input_xpos--;
+          mvwaddch(input_win, input_ypos, input_xpos, ' ');
+        }
+        
+        wrefresh(input_win);
+        memset(local_input, 0, 80);
       }
     }
     // BACKSPACE
@@ -1099,15 +1109,15 @@ void destroy_win(WINDOW *local_win) {
 void display_browselist() {
   poutput(" >>> Currently in this building:\n");
   for (int i = 0; i < browselistlength; i++)
-    poutput(" %s\n", browselist[i].name);
+    poutput("\t%s\n", browselist[i].name);
   poutput(" <<<\n");
 }
 
 // Function to display help
 void display_help() {
   poutput(" >>> Available Commands:\n");
-  poutput("     /quit - Leave the building\n");
-  poutput("     /who  - Display who is inside the building\n");
-  poutput("     /help - Display this help\n");
+  poutput("\t/quit - Leave the building\n");
+  poutput("\t/who  - Display who is inside the building\n");
+  poutput("\t/help - Display this help\n");
   poutput(" <<<\n");
 }
