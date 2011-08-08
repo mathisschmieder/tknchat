@@ -361,7 +361,7 @@ int main(int argc, char** argv) {
             masterdelay--; 
             // Initialize BrowseList
             reset_browselist();
-            // Add ourselves to the browse list
+            // Add ourself to the browse list
             browselistlength = addToBrowseList(inet_ntoa(localip));
             // Ask all clients for their credentials
             send_multicast(GET_MEMBER_INFO,NULL); 
@@ -748,14 +748,18 @@ int setup_unicast() {
   // Every client opens connections to members that lower in the browse list
   // than itself. All higher clients will connect to said client.
   for (int i = 0; i < localindex; i++) {
+    // Only connect if there is a socket to connect to
     if (browselist[i].socket == -1) { 
-        pdebug(" opening connection to %s, i is %d\n", browselist[i].ip, i);
+      pdebug(" opening connection to %s, i is %d\n", browselist[i].ip, i);
+      
+      // Initialize a new socket. If this fails, quit the program        
       newsock = socket(AF_INET, SOCK_STREAM, 0);
       if (newsock < 0) {
         perror("Error opening unicast socket, closing chat");
         close_chat();
       }
 
+      // Set destination IP and port and connect
       options.sin_addr.s_addr = inet_addr(browselist[i].ip);
       options.sin_port = htons(UC_DATA_PORT);
       options.sin_family = AF_INET;
@@ -763,38 +767,65 @@ int setup_unicast() {
         perror("Error connecting to unicast socket");
         return -1;
       }
+      // Increment number of opened sockets
       returnvalue++;
+      // Save socket in browse list
       browselist[i].socket = newsock;
     } 
   }
+  
+  // Return number of opened sockets
   return returnvalue; 
 }
 
-// Function to send a multicast packet
+/* Function to send data over multicast
+ *
+ * Arguments
+ * int type: Packet type as defined in header
+ * char* data: Packet data, maximum length as defined in header
+ *
+ * Returns the return value of sendto()
+ */
 int send_multicast(int type, char* data) {
   packet packet;
+  // Create raw data packet
   packet = create_packet(type, data);
-  //printf("sending multicast type: %d\n", type);
+  
   if ( data != NULL) {
-    //                                    +4 (header) 
-    return sendto(sd, (char *)&packet, strlen(data) + 4, 0, (struct sockaddr*)&msock, sizeof(msock));
+    //                                              + 6 Bytes (header) 
+    return sendto(sd, (char *)&packet, strlen(data) + 6, 0, (struct sockaddr*)&msock, sizeof(msock));
   }
   else
-    return sendto(sd, (char *)&packet, 4, 0, (struct sockaddr*)&msock, sizeof(msock));
+    //                                 6 Bytes (header)
+    return sendto(sd, (char *)&packet, 6, 0, (struct sockaddr*)&msock, sizeof(msock));
 }
 
+/* Function to send data over unicast
+ *
+ * Arguments
+ * int type: Packet type as defined in header
+ * char* data: Packet data, maximum length as defined in header
+ *
+ * Returns the value of the last write()
+ */
 int send_unicast(int type, char* data) {
   packet packet;
+  // Create raw data packet
   packet = create_packet(type, data);
+
+  // Initialize return value
   int returnvalue;
   returnvalue = 0;
 
   if ( type == LEAVE_GROUP )
+    // Only send LEAVE_GROUP to master, saved in the first browse list entry
     returnvalue = send(browselist[0].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
   else {
+    // All other unicat packets go to every member
     for (int i = 0; i < MAX_MEMBERS; i++) {
-      if ((browselist[i].socket > 0) //dont send to empty sockets
-          && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
+      if ((browselist[i].socket > 0) // Dont send to empty sockets
+          // Dont send to ourself
+          && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { 
         returnvalue = write(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4);
           pdebug(" socket: %d\n", browselist[i].socket);
           pdebug(" sending data: %s\n", data);
@@ -805,7 +836,9 @@ int send_unicast(int type, char* data) {
   return returnvalue;
 }
 
-// Function to set a new state on the StateMachine
+/* Function to set new application state
+ * Also updates the window's state output
+ */
 void setNewState(int state) {
   appl_state = state;
 
@@ -846,15 +879,28 @@ void setNewState(int state) {
   wrefresh(input_win);
 }
 
-// Function to set the global timer used for select
+/* Function to set the global timer
+ *
+ * Arguments
+ * int sec: Second value
+ * int usec: Micro second value
+ */
 void setGlobalTimer(int sec, int usec) {
   globalTimer.tv_sec  = sec;
   globalTimer.tv_usec = usec;
 }
 
+/* Function to prepare data to be sent
+ *
+ * Arguments
+ * int type: Packet type as specified in header
+ * char* data: Packet data, maximum length as specified in header
+ *
+ * Returns a packet struct ready to be sent as specified in header
+ */
 packet create_packet(int type, char* data) {
-  // TODO: seqno % 255
-  seqno++; //increment sequence number by one
+  // Increments sequence number and returns to 1 if value is >255 
+  seqno = seqno + 1 % 255; 
 
   packet packet;
   uint32_t header;
