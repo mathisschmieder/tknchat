@@ -83,8 +83,10 @@ int main(int argc, char** argv) {
   input_set = 0;
 
   // OS_Level generation 
-  srand( time(NULL) ); // Initialize the random seed using current time
-  OS_Level = rand() % 65535 + 1; // Set OS_Level to a random value between 1 and 65535
+  // Initialize the random seed using current time
+  srand( time(NULL) ); 
+  // Set OS_Level to a random value between 1 and 65535
+  OS_Level = rand() % 65535 + 1; 
 
   // Set the interface for all unicast communication. Defaults to eth0 and may be specified via programm argument -i
   if (eth == NULL) 
@@ -161,14 +163,16 @@ int main(int argc, char** argv) {
       
         // Scan the browse list and compare the new connection's source to all known clients
         // We will only accept connections from known members
-        for (int i = 0; i < browselistlength; i++) { // TODO MAX_MEMBERS -> browselistlength - lets hope it didnt break anything
-          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) { // We found the source's IP in the browse list
+        for (int i = 0; i < browselistlength; i++) { 
+          if (strncmp(inet_ntoa(client.sin_addr), browselist[i].ip, INET_ADDRSTRLEN) == 0 ) { 
+            // We found the source's IP in the browse list
             browselist[i].socket = newsock; // Accept and save active socket
             valid = 1;
             break; // End for-loop
           }
         }
-        if (valid == 0) { // Source's IP couldn't be found in the browse list, disconnecting
+        if (valid == 0) { 
+          // Source's IP couldn't be found in the browse list, disconnecting
           pdebug("closing non-authorized unicast connection\n");
           close(newsock);
         }
@@ -176,26 +180,33 @@ int main(int argc, char** argv) {
 
       // Check all member's sockets for data
       for (int i = 0; i < browselistlength; i++) { 
-        if (browselist[i].socket > 0) { // Only check on connected sockets
+        if (browselist[i].socket > 0) { 
+          // Only check on connected sockets
           if (FD_ISSET(browselist[i].socket, &rfds)) {
             local_packet uc_packet; // Declare  local_packet packet
             packet uc_recv;         // Declare raw packet
-            memset(uc_recv.data, 0, strlen(uc_recv.data)); // Memory gets reused so make sure there is no garbage left
-            read(browselist[i].socket, &uc_recv, sizeof(uc_recv)); // Read from unicast stream socket
+            // Memory gets reused so make sure there is no garbage left
+            memset(uc_recv.data, 0, strlen(uc_recv.data)); 
+            // Read from unicast stream socket
+            read(browselist[i].socket, &uc_recv, sizeof(uc_recv)); 
 
             uc_packet = receive_packet(uc_recv);
 
-            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) { // Receive chat message and display it
+            if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) { 
+              // Receive chat message and display it
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
             } else if (uc_packet.type == LEAVE_GROUP) {
               poutput(" >>> %s has left the building\n", browselist[i].name);
               browselistlength = removeFromBrowseList(i);
-              if (appl_state == I_AM_MASTER) { // The master SHOULD be the only one receiving this. Still checking just to be sure
+              // The master SHOULD be the only one receiving this. Still checking just to be sure
+              if (appl_state == I_AM_MASTER) { 
                 char partindex[3];
                 sprintf(partindex, "%d", i);
-                send_multicast(LEAVE_GROUP, partindex); // Inform all slaves of client leave 
+                // Inform all slaves of client leave
+                send_multicast(LEAVE_GROUP, partindex);  
               }
-            } else { // NULL-data packet received with a type != LEAVE_GROUP. This should not happen
+            } else { 
+              // NULL-data packet received with a type != LEAVE_GROUP. This should not happen
               pdebug(" strange data from %s\n", browselist[i].name);
             }
           }
@@ -203,10 +214,14 @@ int main(int argc, char** argv) {
       }
     } 
 
-    if (input_set == 1) { // Check if data has been set in the ncurses thread
-      poutput(" <%s> %s\n", browselist[localindex].name, input); // Local echo of chat message
-      send_unicast(DATA_PKT,input); // Send chat message to other members
-      memset(input, 0, 80); // Clear input char array
+    // Check if data has been set in the ncurses thread
+    if (input_set == 1) { 
+      // Local echo of chat message
+      poutput(" <%s> %s\n", browselist[localindex].name, input); 
+      // Send chat message to other members
+      send_unicast(DATA_PKT,input); 
+      // Clear input char array
+      memset(input, 0, 80); 
       input_set = 0;
     }
 
@@ -215,7 +230,8 @@ int main(int argc, char** argv) {
     switch(appl_state) {
       case STATE_NULL:
         // a: send_SEARCHING_MASTER
-        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); // Supply the master with our IP
+        // Supply the master with our IP
+        send_multicast(SEARCHING_MASTER, inet_ntoa(localip)); 
         setNewState(STATE_INIT);
         break;
       
@@ -226,7 +242,7 @@ int main(int argc, char** argv) {
           // a: send_get_browse_list
           if (mc_packet.type == I_AM_MASTER) {
             pdebug(" master found\n");
-            maxreq = 6; // Browse List will be requested in STATE_MASTER_FOUND if not already received
+            maxreq = 6; 
             setNewState(STATE_MASTER_FOUND);
           } 
           // e: rcvd_force_election
@@ -263,7 +279,8 @@ int main(int argc, char** argv) {
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
         }
-        else if (mc_packet.type == (int)NULL ) { // Only decrement maxreq if there is no received packet
+        else if (mc_packet.type == (int)NULL ) { 
+          // Only do this if there is no received packet
           // e: Timeout && #req < MAXREQ 
           // a: send_get_browse_list
           if (maxreq == 6) {
@@ -287,7 +304,8 @@ int main(int argc, char** argv) {
         // e: rcvd_get_member_info
         // a: send_member_info
         // s: STATE_MASTER_FOUND
-        if (mc_packet.type == GET_MEMBER_INFO) { // Master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
+        if (mc_packet.type == GET_MEMBER_INFO) { 
+          // Master requests our info. supply them and go into STATE_MASTER_FOUND to wait for new browselist
           maxreq = 6; // Reset retry counter 
           pdebug(" SENDING MEMBER INFO\n");
           send_multicast(SET_MEMBER_INFO, inet_ntoa(localip));
