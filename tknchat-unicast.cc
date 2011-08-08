@@ -33,7 +33,7 @@ int seqno;
 int browselistlength = 0;
 char host[1024];
 in_addr localip;
-int localindex;
+int localindex = -1;
 
 // Character input
 int ch;
@@ -216,37 +216,21 @@ int main(int argc, char** argv) {
         }
         if (valid == 0) {
           pdebug("closing non-authorized unicast connection\n");
+      pdebug(" current browselistlength: %s\n", browselistlength);
+      for (int i = 0; i < browselistlength; i++) {
+        pdebug(" index: %d, name: %s, socket %d\n", i, browselist[i].name, browselist[i].socket);
+      }
+
           close(newsock);
         }
       } 
-      // TODO obsolete
-      //else if (FD_ISSET(0, &rfds)) {
-      //  // keyboard input
-      //  char buffer[MAX_MSG_LEN];
-      //  char * p;
-
-      //  memset(buffer, 0, MAX_MSG_LEN); //clear buffer
-      //  fgets(buffer, MAX_MSG_LEN, stdin);     
-
-      //  
-      //  //remove trailing newline character                                       
-      //  if ((p = strchr(buffer, '\n')) != NULL)
-      //    *p = '\0';
-
-      //  if (strncmp("/", &buffer[0], 1) == 0) { // input with / is a command
-      //    if (strncmp("quit", &buffer[1], 5) == 0)
-      //      close_chat();
-      //  }
-
-      //  send_unicast(DATA_PKT,buffer);
-      //}
-      for (int i = 0; i < MAX_MEMBERS; i++) {
+      for (int i = 0; i < MAX_MEMBERS; i++) { //TODO shouldnt this be browselist?
         if (browselist[i].socket > 0) {
           if (FD_ISSET(browselist[i].socket, &rfds)) {
             local_packet uc_packet;
             packet uc_recv;
             memset(uc_recv.data, 0, strlen(uc_recv.data));
-            recv(browselist[i].socket, &uc_recv, sizeof(uc_recv), 0);
+            read(browselist[i].socket, &uc_recv, sizeof(uc_recv));
 
             uc_packet = receive_packet(uc_recv);
             //printf("unicast received type: %d\n", uc_packet.type);
@@ -255,7 +239,7 @@ int main(int argc, char** argv) {
             if ((uc_packet.type == DATA_PKT) && ((int)strlen(uc_packet.data) > 0)) {
               poutput(" <%s> %s\n", browselist[i].name, uc_packet.data);
             } else if (uc_packet.type == LEAVE_GROUP) { //only null-data packet on unicast is LEAVE_GROUP 
-              poutput(" >>> %s left the building\n", browselist[i].name);
+              poutput(" >>> %s has left the building\n", browselist[i].name);
               browselistlength = removeFromBrowseList(i);
               if (appl_state == I_AM_MASTER) { //inform other clients of the part
                 char partindex[3];
@@ -264,8 +248,7 @@ int main(int argc, char** argv) {
               }
             } else {
               //TODO explanation why this is necessary
-              pdebug(" penis\n");
-              browselistlength = removeFromBrowseList(i);
+              pdebug(" strange data from %s\n", browselist[i].name);
             }
           }
         }
@@ -374,6 +357,7 @@ int main(int argc, char** argv) {
           setNewState(STATE_MASTER_FOUND);
         } else if (mc_packet.type == LEAVE_GROUP_MASTER) {
           maxreq = 5;
+          removeFromBrowseList(0);
           send_multicast(STATE_FORCE_ELECTION, NULL);
           setNewState(STATE_FORCE_ELECTION);
         }
@@ -384,7 +368,7 @@ int main(int argc, char** argv) {
           browselistlength = receive_BrowseListItem(mc_packet.data);
         } else if (mc_packet.type == LEAVE_GROUP) {
           //remove client from browselist
-          poutput(" >>> %s left the building\n", browselist[atoi(mc_packet.data)].name);
+          poutput(" >>> %s has left the building\n", browselist[atoi(mc_packet.data)].name);
           pdebug(" bllength before removing: %d\n", browselistlength);
           browselistlength = removeFromBrowseList(atoi(mc_packet.data));
           pdebug(" bllength after removing: %d\n", browselistlength);
@@ -800,7 +784,7 @@ int send_unicast(int type, char* data) {
     for (int i = 0; i < MAX_MEMBERS; i++) {
       if ((browselist[i].socket > 0) //dont send to empty sockets
           && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 ) ) { //dont send to ourselves
-        returnvalue = send(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4, 0);
+        returnvalue = write(browselist[i].socket, (char *)&packet, MAX_MSG_LEN + 4);
           pdebug("socket: %d\n", browselist[i].socket);
           pdebug("sending data: %s\n", data);
       }
@@ -907,7 +891,7 @@ void addToBrowseList(char* clientip, int i) {
   int duplicate = 0;
   // Check if item already exists in browselist
   // starting with first slave
-  for (int index = 1; index < i; index++) {
+  for (int index = 0; index < i + 1; index++) {
     if (!strcmp(browselist[index].ip,clientip)) {
       duplicate = 1;
     }
@@ -931,6 +915,9 @@ void addToBrowseList(char* clientip, int i) {
     ip.s_addr = inet_addr(clientip);
     host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
     strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
+    browselist[i].socket = -1;
+    if ( i != localindex) 
+      poutput(" >>> %s has entered the building\n", browselist[i].name);
     //pdebug(" IP: %s\n", browselist[i].ip);
     //pdebug(" Host: %s\n", browselist[i].name);
   }
@@ -957,6 +944,9 @@ int addToBrowseList(char* clientip) {
   ip.s_addr = inet_addr(clientip);
   host = gethostbyaddr((char*)&ip, sizeof(ip), AF_INET);
   strncpy(browselist[i].name, host->h_name, strlen(host->h_name));
+  browselist[i].socket = -1;
+  if ( i != localindex) 
+    poutput(" >>> %s has entered the building\n", browselist[i].name);
 
   i++;
   return i;
@@ -964,7 +954,10 @@ int addToBrowseList(char* clientip) {
 
 // Function to remove a single client from the BrowseList 
 int removeFromBrowseList(int i) {
-  close(browselist[i].socket); // Clean up the socket
+  pdebug(" closing socket %d\n", browselist[i].socket);
+  int success; 
+  success = close(browselist[i].socket); // Clean up the socket
+  pdebug(" close exit code was %d\n", success);
   
   if ( i == browselistlength - 1) {
     browselist[i].socket = -1;
@@ -1037,8 +1030,8 @@ int receive_BrowseListItem(char* data) {
   strncpy(ip, strtok(NULL, ","), 16);
 
   // If index is 0 we are about to receive a new BrowseList
-  if (atoi(blindex) == 0)
-    reset_browselist();
+  //if (atoi(blindex) == 0)
+  //  reset_browselist(); TODO this shouldnt be necessary
 
   addToBrowseList(ip, atoi(blindex));
 
@@ -1054,13 +1047,14 @@ void close_chat() {
   else
     send_unicast(LEAVE_GROUP, NULL);
 
-  // Close all connections by resetting browselist
-  reset_browselist(); 
-
   // Close multicast socket
   close(sd);
   // Close incoming unicast socket
   close(s);
+
+  // Close allpossible unicastsockets
+  for (int i = 3; i < FD_SETSIZE; i++ )
+    close(i);
 
   // Clean up interface
   destroy_win(debug_win);
