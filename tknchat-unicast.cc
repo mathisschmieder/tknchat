@@ -1095,3 +1095,19 @@ void destroy_win(WINDOW *local_win) {
   delwin(local_win);
 }
 
+// Function to display the current browse list
+void display_browselist() {
+  poutput(" >>> Currently in this building:\n");
+  for (int i = 0; i < browselistlength; i++)
+    poutput(" %s\n", browselist[i].name);
+  poutput(" <<<\n");
+}
+
+// Function to display help
+void display_help() {
+  poutput(" >>> Available Commands:\n");
+  poutput("     /quit - Leave the building\n");
+  poutput("     /who  - Display who is inside the building\n");
+  poutput("     /help - Display this help\n");
+  poutput(" <<<\n");
+}

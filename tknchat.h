@@ -92,6 +92,8 @@ int send_unicast(int, char*);
 void close_chat();
 WINDOW *create_newwin(int height, int width, int ystart, int xstart, int border);
 void destroy_win(WINDOW *local_win);
+void display_browselist();
+void display_help();
 
 void pdebug(const char* fmt, ...);
 void poutput(const char* fmt, ...);
