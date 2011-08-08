@@ -1167,6 +1167,7 @@ int receive_BrowseListItem(char* data) {
 // Exit function
 void close_chat() {
   poutput(" >> quitting chat\n");
+
   // Tell the group that we are leaving
   if (appl_state == I_AM_MASTER)
     send_multicast(LEAVE_GROUP_MASTER, NULL);
@@ -1225,3 +1226,13 @@ void display_help() {
   poutput("\t/who  - Display who is inside the building\n");
   poutput("\t/help - Display this help\n");
 }
+
+
+/* Wow - you have read through nearly 1230 lines of code. Respect!
+ *
+ * We do assure you that no animals were harmed while programming this tool.
+ * A big thanks to Mountain Dew and Lucky Strike, without you
+ * this project would never have been possible.
+ *
+ * Keep it safe, 42 and godspeed!
+ */
