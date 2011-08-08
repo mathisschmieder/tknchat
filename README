@@ -1,0 +1,23 @@
+Technische Universitaet Berlin
+Lehrstuhl fuer Kommunikationsnetze
+
+Praktikum Kommunikationsnetze
+Block D - Chattool
+
+Mathis Schmieder - 316110
+Konstantin Koslowski - 316955
+
+1. Compiling
+- You need the ncurses headers installed in order to compile this tool
+  On a recent Ubuntu, this would be libncurses5-dev
+- Compile with a simple make, or make debug if you want a lot of debugging output
+
+2. Running
+By default, tknchat uses eth0 as it's main unicast interface. If you want to
+change that, run the program with the argument -i ethX.
+To display a help output, run it with the argument -h.
+
+3. Runtime Commands
+- /who displays all currently connected members
+- /quit quits the chat
+- /help displays all available commands
