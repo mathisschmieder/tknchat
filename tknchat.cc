@@ -643,23 +643,29 @@ void init_fdSet(fd_set* fds) {
       FD_SET(browselist[i].socket, fds);
 }
 
-// Function to setup multicast communication
+/* Function to set up multicast socket
+ *
+ * Returns the set up socket
+ */
 int setup_multicast() {
   int sd;
   struct ip_mreq group;
 
+  // Initialize socket
   sd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sd < 0) {
     perror("Error opening datagram socket");
     exit(1);
   }
  
+  // Don't block the local multicast port
   int reuse = 1;
   if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
     perror("Error setting SO_REUSEADDR");
     exit(1);
   }
 
+  // Prevent receiving own multicast messages
   char loopch = 0;
   if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&loopch, sizeof(loopch)) < 0) {
     perror("Error setting IP_MULTICAST_LOOP");
@@ -667,6 +673,7 @@ int setup_multicast() {
     exit(1);
   }
 
+  // Set multicast group address and port
   memset((char* ) &msock, 0, sizeof(msock));
   msock.sin_family = AF_INET;
   msock.sin_port = htons(MC_GROUP_PORT);
@@ -677,6 +684,7 @@ int setup_multicast() {
     exit(1);
   }
 
+  // Joining multicast group
   group.imr_multiaddr.s_addr = inet_addr(MC_GROUP_ADDR);
   group.imr_interface.s_addr = INADDR_ANY;
   if(setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0) {
@@ -685,21 +693,30 @@ int setup_multicast() {
    }
 
   pdebug(" Multicast set up\n");
+  
+  // Return set up socket
   return sd;
 }
 
+/* Function to set up local listening, passive open unicast socket 
+ *
+ * Returns the set up socket
+ */
 int setup_unicast_listen() {
   int s;
   struct sockaddr_in srv;
 
   pdebug(" Setting up incoming socket\n");
 
+  // Initialize socket
   s = socket(AF_INET, SOCK_STREAM, 0);
   if (s < 0) {
     perror("Error opening local listening socket");
     exit(1);
   }
 
+  // Set port number and bind socket to port
+  // Accept connections from any IP
   srv.sin_addr.s_addr = INADDR_ANY;
   srv.sin_port = htons(UC_DATA_PORT);
   srv.sin_family = AF_INET;
@@ -708,20 +725,30 @@ int setup_unicast_listen() {
     exit(1);
   }
 
+  // Set socket passive open and listen for up to 5 simultaneous commections
   if (listen(s,5) < 0) {
     perror("Error listening to local socket");
     exit(1);
   }
 
+  // Return set up socket
   return s;
 }
 
+/* Function to set up unicast connections to other members
+ *
+ * Returns the number of opened connections
+ * Returns -1 if there was an error
+ */
 int setup_unicast() {
-  int newsock;
+  int newsock, returnvalue;
   struct sockaddr_in options;
+
+  // Because TCP is full duplex, we only need one connection between two members
+  // Every client opens connections to members that lower in the browse list
+  // than itself. All higher clients will connect to said client.
   for (int i = 0; i < localindex; i++) {
-    if ((browselist[i].socket == -1) 
-        && (strncmp(inet_ntoa(localip), browselist[i].ip, INET_ADDRSTRLEN) != 0 )) { // this should be obsolete
+    if (browselist[i].socket == -1) { 
         pdebug(" opening connection to %s, i is %d\n", browselist[i].ip, i);
       newsock = socket(AF_INET, SOCK_STREAM, 0);
       if (newsock < 0) {
@@ -736,11 +763,11 @@ int setup_unicast() {
         perror("Error connecting to unicast socket");
         return -1;
       }
-
+      returnvalue++;
       browselist[i].socket = newsock;
     } 
   }
-  return 0; //TODO
+  return returnvalue; 
 }
 
 // Function to send a multicast packet
